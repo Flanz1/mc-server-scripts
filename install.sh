@@ -264,6 +264,22 @@ install_minecraft_server() {
 
 echo "🛠️  Initializing Setup..."
 
+# ==========================================
+# Directory Setup
+# ==========================================
+echo "📂 Directory Setup"
+read -p "Name of new server folder (press Enter to use current folder): " DIR_NAME
+
+if [ ! -z "$DIR_NAME" ]; then
+    echo "Creating folder '$DIR_NAME'..."
+    mkdir -p "$DIR_NAME"
+    cd "$DIR_NAME" || exit
+    echo "✅ Switched to $(pwd)"
+else
+    echo "⚠️  Installing in CURRENT directory: $(pwd)"
+fi
+echo ""
+
 # Install Dependencies
 echo "📦 Installing system packages (Java 21, Screen, JQ, Curl)..."
 sudo apt-get update -qq
