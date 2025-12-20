@@ -31,7 +31,8 @@ echo "✅ Created update.sh (PaperMC)"
 neoforge_update() {
 cat << 'EOF' > update.sh
 #!/bin/bash
-# NeoForge Updater
+# NeoForge Updater & Cleaner
+
 echo "=========================================="
 echo "   NeoForge Server Updater"
 echo "=========================================="
@@ -57,14 +58,29 @@ fi
 echo "⚙️  Running NeoForge Installer..."
 java -jar installer.jar --installServer
 
-# Cleanup
+# === CLEANUP & CONFIGURATION ===
+echo "🧹 Cleaning up clutter..."
 rm installer.jar
 rm installer.jar.log 2>/dev/null
+rm run.bat 2>/dev/null  # Remove Windows junk
+
+# === RAM SYNC ===
+# We grab the RAM variable from the main script if possible, or default to 4G
+# Note: When running this update.sh standalone later, RAM might not be set.
+# So we check if user_jvm_args.txt exists, if not we create it.
+
+if [ ! -f "user_jvm_args.txt" ]; then
+    echo "-Xms4G" > user_jvm_args.txt
+    echo "-Xmx4G" >> user_jvm_args.txt
+    echo "📝 Created user_jvm_args.txt with default 4G RAM."
+else
+    echo "✅ user_jvm_args.txt preserved."
+fi
 
 echo "✅ NeoForge updated to $NF_VERSION."
 EOF
 chmod +x update.sh
-echo "✅ Created update.sh (NeoForge)"
+echo "✅ Created update.sh (NeoForge + Auto-Cleaner)"
 }
 
 create_stop_script() {
@@ -214,17 +230,18 @@ install_minecraft_server() {
     elif [ "$SERVER_TYPE" == "2" ]; then
         echo "--- NeoForge Selected ---"
         neoforge_update
-        # Run the update script we just made
+        # Run the update script
         ./update.sh
 
-        # Ensure run.sh is executable (NeoForge creates this)
+        # 🟢 NEW: Force-write the RAM settings immediately after install
+        echo "-Xms$RAM" > user_jvm_args.txt
+        echo "-Xmx$RAM" >> user_jvm_args.txt
+        echo "✅ RAM set to $RAM in user_jvm_args.txt"
+
+        # Ensure run.sh is executable
         if [ -f "run.sh" ]; then
             chmod +x run.sh
         fi
-    else
-        echo "❌ Invalid selection."
-        return 1
-    fi
 
     # Auto-EULA
     read -p "Auto-accept EULA? (y/n): " EULA_CHOICE
