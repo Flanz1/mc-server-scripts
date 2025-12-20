@@ -17,9 +17,15 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-21-jre-headless s
 echo "✅ System ready."
 echo ""
 
-# 2. Configuration
 read -p "Enter RAM amount (e.g., 4G): " RAM_INPUT
-RAM=${RAM_INPUT:-4G}
+if [ -z "$RAM_INPUT" ]; then
+    RAM="4G"
+elif [[ "$RAM_INPUT" =~ ^[0-9]+$ ]]; then
+    RAM="${RAM_INPUT}G"
+# Trust the user that they know what letter thay are adding at the end
+else
+    RAM="$RAM_INPUT"
+fi
 SCREEN_NAME="minecraft"
 JAR_FILE="server.jar"
 
