@@ -12,6 +12,7 @@ A lightweight, automated script suite for deploying and managing a PaperMC serve
 * **Easy Management:**
     * `./start.sh` - Starts server in a background screen (no terminal hostage).
     * `./stop.sh` - Gracefully stops server and kills the screen loop.
+    * `./forcekill.sh` - "Kill-switch" (Forcekills the server without saving)
     * `./restart.sh` - Full safe reboot cycle.
     * `./uninstall.sh` - "Self-destruct" (Stops server, removes cron jobs, deletes files).
 
