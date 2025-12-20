@@ -17,18 +17,10 @@ A robust, all-in-one Bash script to set up, manage, and maintain Minecraft serve
 
 ## 🚀 Quick Start
 
-1.  **Download the script:**
-    ```bash
-    wget -O install.sh https://github.com/Flanz1/mc-server-scripts
-    chmod +x install.sh
-    ```
-
-2.  **Run the installer:**
-    ```bash
-    ./install.sh
-    ```
-
-3.  **Follow the prompts:**
+1.  **One command to download and install:**
+   * ```Bash
+      wget -qO install.sh https://raw.githubusercontent.com/Flanz1/mc-server-scripts/main/install.sh && chmod +x install.sh && ./install.sh
+2.  **Follow the prompts:**
     * Choose Server Type: `1` for PaperMC, `2` for NeoForge.
     * Set RAM (e.g., `8G`).
     * Accept EULA.
