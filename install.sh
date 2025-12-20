@@ -203,7 +203,92 @@ EOF
 chmod +x uninstall.sh
 echo "✅ Created uninstall.sh"
 }
+# ==========================================
+# 🔧 Function: Generate Modpack Installer
+# ==========================================
+create_modpack_installer() {
+    local TARGET_DIR="$1"
 
+    # If no directory is passed, default to current
+    if [ -z "$TARGET_DIR" ]; then
+        TARGET_DIR="."
+    fi
+
+    echo -e "--> Creating 'install_modpack.sh' in ${TARGET_DIR}..."
+
+    # Create the file using a heredoc
+    cat << 'EOF' > "${TARGET_DIR}/install_modpack.sh"
+#!/bin/bash
+# --- Auto-Generated CurseForge Installer ---
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+echo -e "${CYAN}=== CurseForge/NeoForge Pack Installer ===${NC}"
+
+# 1. Get Link
+if [ -z "$1" ]; then
+    echo -e "Paste the ${GREEN}download link${NC} for the Server Pack (zip):"
+    read -r DOWNLOAD_URL
+else
+    DOWNLOAD_URL=$1
+fi
+
+if [ -z "$DOWNLOAD_URL" ]; then
+    echo "No URL provided."
+    exit 1
+fi
+
+# 2. Download & Unzip
+echo "--> Downloading..."
+wget -O server_pack.zip "$DOWNLOAD_URL" || { echo "Download failed"; exit 1; }
+
+echo "--> Extracting..."
+if ! command -v unzip &> /dev/null; then
+    echo "Installing unzip..."
+    sudo apt-get install unzip -y
+fi
+unzip -o server_pack.zip
+rm server_pack.zip
+
+# 3. Flatten Nested Folders (Common in CurseForge packs)
+DIR_COUNT=$(ls -d */ 2>/dev/null | wc -l)
+FILE_COUNT=$(ls -p | grep -v / | wc -l)
+
+# If only 1 folder exists and almost no files, move contents out
+if [ "$DIR_COUNT" -eq 1 ] && [ "$FILE_COUNT" -le 2 ]; then
+    SUBFOLDER=$(ls -d */)
+    SUBFOLDER=${SUBFOLDER%/} # remove trailing slash
+    echo "--> Moving files out of subfolder: $SUBFOLDER"
+    mv "$SUBFOLDER"/* . 2>/dev/null
+    mv "$SUBFOLDER"/.* . 2>/dev/null
+    rmdir "$SUBFOLDER"
+fi
+
+# 4. NeoForge/Forge Specifics
+echo "--> Setting permissions..."
+chmod +x *.sh 2>/dev/null
+chmod +x user_jvm_args.txt 2>/dev/null
+
+# Auto-accept EULA
+echo "eula=true" > eula.txt
+
+# Check for NeoForge installer jar if no script exists yet
+if [ ! -f "run.sh" ] && [ ! -f "start.sh" ]; then
+    INSTALLER_JAR=$(ls *installer.jar 2>/dev/null | head -n 1)
+    if [ -n "$INSTALLER_JAR" ]; then
+        echo -e "${GREEN}--> Found Installer Jar: $INSTALLER_JAR${NC}"
+        echo "You may need to run: java -jar $INSTALLER_JAR --installServer"
+    fi
+fi
+
+echo -e "${GREEN}Done! Run ./install_modpack.sh to repeat or ./run.sh to start.${NC}"
+EOF
+
+    # Make the generated script executable
+    chmod +x "${TARGET_DIR}/install_modpack.sh"
+    echo "✅ Helper script created successfully."
+}
 install_minecraft_server() {
     # Check for jq
     if ! command -v jq &> /dev/null; then
@@ -230,6 +315,7 @@ install_minecraft_server() {
     elif [ "$SERVER_TYPE" == "2" ]; then
         echo "--- NeoForge Selected ---"
         neoforge_update
+        create_modpack_installer
         # Run the update script
         ./update.sh
 
