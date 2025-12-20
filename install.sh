@@ -216,8 +216,8 @@ create_modpack_installer() {
 
     echo -e "--> Creating 'install_modpack.sh' in ${TARGET_DIR}..."
 
-    # Create the file using a heredoc
-    cat << 'EOF' > "${TARGET_DIR}/install_modpack.sh"
+# Create the file using a heredoc
+cat << 'EOF' > "${TARGET_DIR}/install_modpack.sh"
 #!/bin/bash
 # --- Auto-Generated CurseForge Installer ---
 GREEN='\033[0;32m'
@@ -225,6 +225,8 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 echo -e "${CYAN}=== CurseForge/NeoForge Pack Installer ===${NC}"
+
+./forcekill.sh
 
 # 1. Get Link
 if [ -z "$1" ]; then
