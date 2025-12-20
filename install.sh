@@ -1,5 +1,5 @@
 #!/bin/bash
-
+SCRIPT_PATH=$(readlink -f "$0")
 # ==========================================
 # Universal Minecraft Server Installer
 # Supports: PaperMC & NeoForge (ATM10)
