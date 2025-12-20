@@ -312,3 +312,9 @@ install_minecraft_server
 echo ""
 echo "🎉 Installation Complete!"
 echo "👉 Use ./start.sh to launch your server."
+
+# ==========================================
+# Self-Cleanup
+# ==========================================
+echo "🧹 Cleaning up installer file..."
+rm -- "$0"
