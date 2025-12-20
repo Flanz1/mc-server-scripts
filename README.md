@@ -19,7 +19,7 @@ A robust, all-in-one Bash script to set up, manage, and maintain Minecraft serve
 
 1.  **Download the script:**
     ```bash
-    wget -O install.sh [https://your-url-here.com/install.sh](https://your-url-here.com/install.sh)
+    wget -O install.sh https://github.com/Flanz1/mc-server-scripts
     chmod +x install.sh
     ```
 
