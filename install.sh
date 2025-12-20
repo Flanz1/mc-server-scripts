@@ -170,6 +170,36 @@ find_java_pid() {
     done
 }
 
+# --- AUTO-START LOGIC ---
+check_autostart() {
+    # Check if this specific directory is in the crontab
+    if crontab -l 2>/dev/null | grep -F "$SERVER_DIR" | grep -q "@reboot"; then
+        AUTOSTART_MSG="${GREEN}${BOLD}ON${NORM}"
+        AUTOSTART_STATE="on"
+    else
+        AUTOSTART_MSG="${RED}${BOLD}OFF${NORM}"
+        AUTOSTART_STATE="off"
+    fi
+}
+
+toggle_autostart() {
+    # Define the command we want to add/remove
+    # We use 'run.sh' if it exists (NeoForge), otherwise 'start.sh'
+    if [ -f "$SERVER_DIR/run.sh" ]; then START_SCRIPT="run.sh"; else START_SCRIPT="start.sh"; fi
+
+    CRON_CMD="@reboot /usr/bin/screen -dmS $SCREEN_NAME /bin/bash $SERVER_DIR/$START_SCRIPT"
+
+    if [ "$AUTOSTART_STATE" == "on" ]; then
+        # DISABLE: Remove the line containing our server path
+        (crontab -l 2>/dev/null | grep -vF "$SERVER_DIR") | crontab -
+        echo "✅ Auto-start disabled."
+    else
+        # ENABLE: Append the command
+        (crontab -l 2>/dev/null; echo "$CRON_CMD") | crontab -
+        echo "✅ Auto-start enabled."
+    fi
+}
+
 # --- STATS ENGINE ---
 get_server_stats() {
     detect_screen
@@ -296,6 +326,10 @@ while true; do
                 tput cnorm; clear; [ -f "./install_modpack.sh" ] && ./install_modpack.sh; read -p "Done."; tput civis; clear ;;
             6)
                 clear; echo -e "\n${CYAN}--> Playit.gg${NORM}"; sudo systemctl status playit --no-pager; read -p "Done."; clear ;;
+            q|Q) exit 0 ;;
+            7)
+                clear; echo -e "\n${MAGENTA}--> Toggling Auto-Start...${NORM}"
+                toggle_autostart; read -p "Press Enter..."; clear ;;
             q|Q) exit 0 ;;
         esac
     fi
