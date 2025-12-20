@@ -191,8 +191,10 @@ echo ""
 read -p "❓ Download latest PaperMC server file now? (y/n): " RUN_UPDATE
 if [[ "$RUN_UPDATE" =~ ^[Yy]$ ]]; then
     ./update.sh
-    echo "Remember to run java -Xmx2G -jar server.jar nogui"
-    echo "to generato config files and accept the eula by editing the eula.txt file."
+    read -p "❓ Would you like to initialize your minecraft server to generate config files? (y/n): " INIT_CONFIG
+    if [[ "$INIT_CONFIG" =~ ^[Yy]$ ]]; then
+    java -Xmx2G -jar server.jar nogui
+    fi
 fi
 
 echo ""
