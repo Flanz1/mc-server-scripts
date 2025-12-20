@@ -296,6 +296,3 @@ install_minecraft_server
 echo ""
 echo "🎉 Installation Complete!"
 echo "👉 Use ./start.sh to launch your server."
-if [ "$SERVER_TYPE" == "2" ]; then
-    echo "⚠️  NeoForge Note: Remember to edit 'user_jvm_args.txt' to set your RAM!"
-fi
