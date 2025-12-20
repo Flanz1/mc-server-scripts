@@ -68,4 +68,3 @@ Once installed, use these scripts inside the folder to manage your server:
 
 * **OS:** Debian 10+ or Ubuntu 20.04+
 * **Permissions:** Root or `sudo` access (to install Java/dependencies).
-* **Internet:** Required to fetch server jars.
