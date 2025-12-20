@@ -293,7 +293,7 @@ install_dashboard(){
         print_line 11 "   ${GREEN}[1]${NORM} ▶ Start Server      ${YELLOW}[4]${NORM} 💾 Force Backup"
         print_line 12 "   ${RED}[2]${NORM} ■ Stop Server       ${YELLOW}[5]${NORM} 📦 Install Modpack"
         print_line 13 "   ${CYAN}[3]${NORM} > Open Console      ${YELLOW}[6]${NORM} 🌐 Playit.gg Status"
-        print_line 14 "   ${RED}[Q]${NORM} Quit"
+        print_line 14 "   ${GREEN}[7]${NORM} Turn on on boot ${RED}[Q]${NORM} Quit"
         print_line 15 "${BLUE}=======================================================${NORM}"
         print_line 16 " ${WHITE}Live Monitoring...${NORM}                             "
 
@@ -336,6 +336,8 @@ install_dashboard(){
         fi
     done
 EOF
+chmod +x dashboard.sh
+echo "✅ Dashboard installed!"
 }
 
 install_playit() {
