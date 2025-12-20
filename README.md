@@ -2,4 +2,4 @@
 
 To seamlesly install the server run the following command:
 ```bash 
-git clone https://github.com/Flanz1/mc-server-scripts.git minecraft-server && cd minecraft-server && chmod +x install_scripts.sh && ./install_scripts.sh
+git clone https://github.com/Flanz1/mc-server-scripts.git minecraft-server && cd minecraft-server && chmod +x install.sh && ./install.sh
