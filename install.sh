@@ -124,66 +124,60 @@ EOF
 echo "✅ Created restart.sh"
 
 # ==========================================
-# 7. Create backup.sh & Setup Cron
+# 7b. Setup Scheduler (Auto-Start + Auto-Backup)
 # ==========================================
 
-# Variables needed for standalone execution
-SCREEN_NAME="minecraft"
 CURRENT_DIR=$(pwd)
 
-# A. Generate the Backup Script
-cat << EOF > backup.sh
-#!/bin/bash
+# Run backup every 4 hours
+CRON_BACKUP="0 */4 * * * cd $CURRENT_DIR && ./backup.sh >> $CURRENT_DIR/backup.log 2>&1"
+# Run start script immediately when the PC boots
+CRON_START="@reboot cd $CURRENT_DIR && ./start.sh"
 
-# Configuration
-BACKUP_DIR="$CURRENT_DIR/backups"
-# Add any other folders you want to save here (e.g. 'config')
-SOURCE_FILES="world world_nether world_the_end plugins server.properties"
-SCREEN_NAME="$SCREEN_NAME"
-DATE_FORMAT=\$(date +"%Y-%m-%d_%H-%M")
-FILE_NAME="backup_\$DATE_FORMAT.tar.gz"
+# We use 'grep -v' to remove old entries for this folder so we don't get duplicates if you run this twice.
+(crontab -l 2>/dev/null | grep -v "$CURRENT_DIR"; echo "$CRON_BACKUP"; echo "$CRON_START") | crontab -
 
-mkdir -p \$BACKUP_DIR
-
-echo "📦 Starting Backup: \$FILE_NAME"
-
-# 1. Notify Server & Turn off Auto-Save (Prevents data corruption)
-if screen -list | grep -q "\$SCREEN_NAME"; then
-    screen -S \$SCREEN_NAME -X stuff "say 📦 Starting Backup... (Expect lag)^M"
-    screen -S \$SCREEN_NAME -X stuff "save-off^M"
-    screen -S \$SCREEN_NAME -X stuff "save-all^M"
-    sleep 2
-fi
-
-# 2. Compress Files
-tar -czf "\$BACKUP_DIR/\$FILE_NAME" \$SOURCE_FILES 2>/dev/null
-
-# 3. Turn Auto-Save back on
-if screen -list | grep -q "\$SCREEN_NAME"; then
-    screen -S \$SCREEN_NAME -X stuff "save-on^M"
-    screen -S \$SCREEN_NAME -X stuff "say ✅ Backup Complete!^M"
-fi
-
-echo "✅ Backup saved to \$BACKUP_DIR/\$FILE_NAME"
-
-# 4. Delete backups older than 7 days
-find \$BACKUP_DIR -type f -name "*.tar.gz" -mtime +7 -delete
-EOF
-
-chmod +x backup.sh
-echo "✅ Created backup.sh"
-
-# B. Program the Scheduler (Cron)
-# 0 */4 * * * means "Every 4 hours on the hour"
-CRON_CMD="0 */4 * * * cd $CURRENT_DIR && ./backup.sh >> $CURRENT_DIR/backup.log 2>&1"
-
-# This command removes any old jobs for this specific folder (to prevent duplicates) and adds the new one
-(crontab -l 2>/dev/null | grep -v "$CURRENT_DIR/backup.sh"; echo "$CRON_CMD") | crontab -
-
-echo "✅ Auto-backup scheduled! (Runs every 4 hours)"
+echo "✅ Auto-Backup scheduled (Every 4 hours)."
+echo "✅ Auto-Start scheduled (Runs on Boot)."
 
 # ==========================================
-# 8. Finalize
+# 8. Create uninstall.sh
+# ==========================================
+cat << EOF > uninstall.sh
+#!/bin/bash
+
+CURRENT_DIR="\$(pwd)"
+
+echo "⚠️  WARNING: This will PERMANENTLY DELETE this server and its backups!"
+echo "   - Folder: \$CURRENT_DIR"
+echo "   - Cron jobs: Auto-Start & Auto-Backups"
+echo ""
+read -p "Are you 100% sure? (Type 'delete' to confirm): " CONFIRM
+
+if [ "\$CONFIRM" != "delete" ]; then
+    echo "❌ Uninstall cancelled."
+    exit 1
+fi
+
+echo "🛑 Stopping server if running..."
+./stop.sh 2>/dev/null
+
+echo "🧹 Removing Cron jobs (Auto-Start & Backups)..."
+# This greps for the current directory path and removes those lines from crontab
+crontab -l | grep -v "\$CURRENT_DIR" | crontab -
+
+echo "🔥 Deleting server files..."
+# We move out of the directory first so we can delete it
+cd ..
+rm -rf "\$CURRENT_DIR"
+
+echo "✅ Uninstall Complete. The server is gone."
+EOF
+chmod +x uninstall.sh
+echo "✅ Created uninstall.sh"
+
+# ==========================================
+# 9. Finalize
 # ==========================================
 chmod +x start.sh stop.sh restart.sh update.sh
 
