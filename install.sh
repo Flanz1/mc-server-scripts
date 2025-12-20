@@ -124,7 +124,66 @@ EOF
 echo "✅ Created restart.sh"
 
 # ==========================================
-# 7. Finalize
+# 7. Create backup.sh & Setup Cron
+# ==========================================
+
+# Variables needed for standalone execution
+SCREEN_NAME="minecraft"
+CURRENT_DIR=$(pwd)
+
+# A. Generate the Backup Script
+cat << EOF > backup.sh
+#!/bin/bash
+
+# Configuration
+BACKUP_DIR="$CURRENT_DIR/backups"
+# Add any other folders you want to save here (e.g. 'config')
+SOURCE_FILES="world world_nether world_the_end plugins server.properties"
+SCREEN_NAME="$SCREEN_NAME"
+DATE_FORMAT=\$(date +"%Y-%m-%d_%H-%M")
+FILE_NAME="backup_\$DATE_FORMAT.tar.gz"
+
+mkdir -p \$BACKUP_DIR
+
+echo "📦 Starting Backup: \$FILE_NAME"
+
+# 1. Notify Server & Turn off Auto-Save (Prevents data corruption)
+if screen -list | grep -q "\$SCREEN_NAME"; then
+    screen -S \$SCREEN_NAME -X stuff "say 📦 Starting Backup... (Expect lag)^M"
+    screen -S \$SCREEN_NAME -X stuff "save-off^M"
+    screen -S \$SCREEN_NAME -X stuff "save-all^M"
+    sleep 2
+fi
+
+# 2. Compress Files
+tar -czf "\$BACKUP_DIR/\$FILE_NAME" \$SOURCE_FILES 2>/dev/null
+
+# 3. Turn Auto-Save back on
+if screen -list | grep -q "\$SCREEN_NAME"; then
+    screen -S \$SCREEN_NAME -X stuff "save-on^M"
+    screen -S \$SCREEN_NAME -X stuff "say ✅ Backup Complete!^M"
+fi
+
+echo "✅ Backup saved to \$BACKUP_DIR/\$FILE_NAME"
+
+# 4. Delete backups older than 7 days
+find \$BACKUP_DIR -type f -name "*.tar.gz" -mtime +7 -delete
+EOF
+
+chmod +x backup.sh
+echo "✅ Created backup.sh"
+
+# B. Program the Scheduler (Cron)
+# 0 */4 * * * means "Every 4 hours on the hour"
+CRON_CMD="0 */4 * * * cd $CURRENT_DIR && ./backup.sh >> $CURRENT_DIR/backup.log 2>&1"
+
+# This command removes any old jobs for this specific folder (to prevent duplicates) and adds the new one
+(crontab -l 2>/dev/null | grep -v "$CURRENT_DIR/backup.sh"; echo "$CRON_CMD") | crontab -
+
+echo "✅ Auto-backup scheduled! (Runs every 4 hours)"
+
+# ==========================================
+# 8. Finalize
 # ==========================================
 chmod +x start.sh stop.sh restart.sh update.sh
 
