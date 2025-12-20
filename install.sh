@@ -32,100 +32,103 @@ EOF
 # ==========================================
 # 🌍 Global Command: 'mcserver'
 # ==========================================
+# ==========================================
+# 🌍 Global Command: 'mcserver'
+# ==========================================
 setup_global_command() {
-        local NAME="$1"
-        local SERVER_PATH="$2"
-        local REGISTRY="$HOME/.mc_registry"
-        local BIN_PATH="/usr/local/bin/mcserver"
+    local NAME="$1"
+    local SERVER_PATH="$2"  # <--- RENAMED (Was PATH)
+    local REGISTRY="$HOME/.mc_registry"
+    local BIN_PATH="/usr/local/bin/mcserver"
 
-        echo "--> Registering global command..."
+    echo "--> Registering global command..."
 
-        # 1. Create/Update the Registry File
-        # Format: SERVER_NAME|SERVER_PATH
-        if [ ! -f "$REGISTRY" ]; then touch "$REGISTRY"; fi
+    # 1. Create/Update Registry
+    if [ ! -f "$REGISTRY" ]; then touch "$REGISTRY"; fi
 
-        # Remove old entry if it exists (to avoid duplicates), then append new one
-        grep -v "^$NAME|" "$REGISTRY" > "${REGISTRY}.tmp" && mv "${REGISTRY}.tmp" "$REGISTRY"
-        echo "$NAME|$PATH" >> "$REGISTRY"
+    # Remove old entry, append new one
+    grep -v "^$NAME|" "$REGISTRY" > "${REGISTRY}.tmp" && mv "${REGISTRY}.tmp" "$REGISTRY"
+    echo "$NAME|$SERVER_PATH" >> "$REGISTRY"
 
-        # 2. Create the Global Script (Only if it doesn't exist or we want to update it)
-        # We use sudo tee because /usr/local/bin requires root permissions
-        if [ ! -f "$BIN_PATH" ] || grep -q "MC_REGISTRY" "$BIN_PATH"; then
-            cat << 'EOF' | sudo tee "$BIN_PATH" > /dev/null
-    #!/bin/bash
-    REGISTRY="$HOME/.mc_registry"
+    # 2. Create the Global Script
+    cat << 'EOF' | sudo tee "$BIN_PATH" > /dev/null
+#!/bin/bash
+REGISTRY="$HOME/.mc_registry"
 
-    # --- HELPER: LIST SERVERS ---
-    list_servers() {
-        echo "Registered Servers:"
-        echo "-------------------"
-        if [ ! -s "$REGISTRY" ]; then
-            echo "No servers found."
-            return
-        fi
-        # Read file, print formatted columns (Name -> Path)
-        column -t -s '|' "$REGISTRY" | sed 's/^/  - /'
-        echo "-------------------"
-    }
+# Colors
+BOLD='\033[1m'
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+GRAY='\033[0;90m'
+NC='\033[0m'
 
-    # --- MODE 1: LIST ---
-    if [ "$1" == "list" ]; then
-        list_servers
-        exit 0
+# --- HELPER: LIST SERVERS ---
+list_servers() {
+    echo -e "\n${BOLD}📡 Registered Minecraft Servers:${NC}"
+    echo -e "${GRAY}------------------------------------------------------------${NC}"
+    # Print Header
+    printf "${CYAN}%-20s ${NC}| ${NC}%s\n" "SERVER NAME" "LOCATION"
+    echo -e "${GRAY}------------------------------------------------------------${NC}"
+
+    if [ ! -s "$REGISTRY" ]; then
+        echo "   (No servers found)"
+        return
     fi
 
-    # --- MODE 2: SPECIFIC SERVER ---
-    TARGET_NAME="$1"
+    # Read file line by line
+    while IFS='|' read -r name path; do
+        # formatting: Name (Green, 20 chars wide) | Path (Gray)
+        printf "${GREEN}%-20s ${NC}| ${GRAY}%s${NC}\n" "$name" "$path"
+    done < "$REGISTRY"
+    echo ""
+}
 
-    # If no argument provided, show interactive menu
-    if [ -z "$TARGET_NAME" ]; then
-        echo "Select a server to manage:"
-        # Read registry into array
-        mapfile -t SERVERS < <(cut -d'|' -f1 "$REGISTRY")
+# --- MODE 1: LIST ---
+if [ "$1" == "list" ]; then
+    list_servers
+    exit 0
+fi
 
-        if [ ${#SERVERS[@]} -eq 0 ]; then
-            echo "No servers registered."
-            exit 1
-        fi
+# --- MODE 2: SPECIFIC SERVER ---
+TARGET_NAME="$1"
 
-        select s in "${SERVERS[@]}"; do
-            if [ -n "$s" ]; then
-                TARGET_NAME="$s"
-                break
-            else
-                echo "Invalid selection."
-            fi
-        done
-    fi
+# Interactive Menu if no arg provided
+if [ -z "$TARGET_NAME" ]; then
+    list_servers
+    echo -e "${BOLD}Select a server to manage:${NC}"
 
-    # Find the path for the selected server
-    TARGET_PATH=$(grep "^$TARGET_NAME|" "$REGISTRY" | cut -d'|' -f2 | head -n 1)
+    mapfile -t SERVERS < <(cut -d'|' -f1 "$REGISTRY")
+    if [ ${#SERVERS[@]} -eq 0 ]; then exit 1; fi
 
-    if [ -z "$TARGET_PATH" ]; then
-        echo "Error: Server '$TARGET_NAME' not found in registry."
-        list_servers
-        exit 1
-    fi
+    select s in "${SERVERS[@]}"; do
+        if [ -n "$s" ]; then TARGET_NAME="$s"; break; else echo "Invalid."; fi
+    done
+fi
 
-    if [ ! -d "$TARGET_PATH" ]; then
-        echo "Error: Directory '$TARGET_PATH' no longer exists."
-        exit 1
-    fi
+# Find Path
+TARGET_PATH=$(grep "^$TARGET_NAME|" "$REGISTRY" | cut -d'|' -f2 | head -n 1)
 
-    # Launch Dashboard
-    cd "$TARGET_PATH" || exit
-    if [ -f "./dashboard.sh" ]; then
-        ./dashboard.sh
-    else
-        echo "Error: dashboard.sh not found in $TARGET_PATH"
-    fi
+if [ -z "$TARGET_PATH" ]; then
+    echo -e "${RED}Error: Server '$TARGET_NAME' not found.${NC}"
+    exit 1
+fi
+
+if [ ! -d "$TARGET_PATH" ]; then
+    echo -e "${RED}Error: Directory missing: $TARGET_PATH${NC}"
+    exit 1
+fi
+
+# Launch
+cd "$TARGET_PATH" || exit
+if [ -f "./dashboard.sh" ]; then
+    ./dashboard.sh
+else
+    echo "Error: dashboard.sh missing."
+fi
 EOF
-            # Make it executable
-            sudo chmod +x "$BIN_PATH"
-            echo "✅ Global command 'mcserver' installed/updated."
-        fi
 
-        echo "✅ Server '$NAME' registered successfully."
+    sudo chmod +x "$BIN_PATH"
+    echo "✅ Server '$NAME' registered successfully."
 }
 
 install_dashboard(){
@@ -547,6 +550,7 @@ create_uninstall_script() {
     crontab -l | grep -v "\$(pwd)" | crontab -
     cd ..
     rm -rf "\$(pwd)"
+    cd
     echo "✅ Uninstall Complete."
 EOF
 chmod +x uninstall.sh
