@@ -195,9 +195,9 @@ if [ "\$CONFIRM" != "delete" ]; then
     exit 1
 fi
 ./forcekill.sh 2>/dev/null
-crontab -l | grep -v "\$CURRENT_DIR" | crontab -
+crontab -l | grep -v "\$(pwd)" | crontab -
 cd ..
-rm -rf "\$CURRENT_DIR"
+rm -rf "\$(pwd)"
 echo "✅ Uninstall Complete."
 EOF
 chmod +x uninstall.sh
@@ -291,6 +291,93 @@ EOF
     chmod +x "${TARGET_DIR}/install_modpack.sh"
     echo "✅ Helper script created successfully."
 }
+
+# create a backup script
+create_backup_system() {
+    local TARGET_DIR="$1"
+
+    # Chekcs if unzip is installed and installs it if its missing.
+    if ! command -v unzip &> /dev/null; then
+    echo -e "${CYAN}--> 'unzip' is missing. Installing it now...${NC}"
+    sudo apt-get update -qq && sudo apt-get install unzip -y
+    # ... checks if it failed ...
+    fi
+
+    # Default to current directory if not provided
+    if [ -z "$TARGET_DIR" ]; then
+        TARGET_DIR="."
+    fi
+
+    # 1. Get Absolute Path of the Target Directory
+    pushd "$TARGET_DIR" > /dev/null
+    local ABS_SERVER_DIR=$(pwd)
+    popd > /dev/null
+
+    echo -e "--> Creating 'backup.sh' in ${TARGET_DIR}..."
+
+    # 2. Generate the Script
+    cat << 'EOF' > "${TARGET_DIR}/backup.sh"
+#!/bin/bash
+# --- Auto-Generated Backup Script ---
+
+# CONFIGURATION
+SCREEN_NAME="mcserver"
+SERVER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+BACKUP_DIR="${SERVER_DIR}/backups"
+TARGET_FOLDER="world"
+
+# RETENTION SETTINGS
+RETENTION_DAYS=7
+
+TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+BACKUP_NAME="backup-${TIMESTAMP}.tar.gz"
+
+# 1. Prepare
+mkdir -p "$BACKUP_DIR"
+cd "$SERVER_DIR" || exit 1
+
+# 2. Notify & Stop Saves
+if screen -list | grep -q "$SCREEN_NAME"; then
+    echo "--> Server is running. Suspending saves..."
+    screen -S "$SCREEN_NAME" -p 0 -X stuff "say §e[Backup] Starting backup... (Every 4 Hours)\n"
+    screen -S "$SCREEN_NAME" -p 0 -X stuff "save-off\n"
+    screen -S "$SCREEN_NAME" -p 0 -X stuff "save-all\n"
+    sleep 5
+else
+    echo "--> Server not running. Backing up offline files."
+fi
+
+# 3. Compress
+echo "--> Compressing to $BACKUP_NAME..."
+# Exclude backups folder to prevent infinite loop
+tar --exclude='./backups' -czf "${BACKUP_DIR}/${BACKUP_NAME}" .
+
+# 4. Resume Saves
+if screen -list | grep -q "$SCREEN_NAME"; then
+    echo "--> Re-enabling saves..."
+    screen -S "$SCREEN_NAME" -p 0 -X stuff "save-on\n"
+    screen -S "$SCREEN_NAME" -p 0 -X stuff "say §a[Backup] Complete!\n"
+fi
+
+# 5. Cleanup
+echo "--> Removing backups older than $RETENTION_DAYS days..."
+find "$BACKUP_DIR" -name "backup-*.tar.gz" -type f -mtime +$RETENTION_DAYS -delete
+echo "✅ Done."
+EOF
+
+    chmod +x "${TARGET_DIR}/backup.sh"
+
+    # 3. Add to Crontab (Every 4 Hours)
+    echo "--> Registering Backup Cron Job..."
+    # Cron syntax: Minute(0) Hour(*/4) Day(*) Month(*) Weekday(*)
+    local CRON_CMD="0 */4 * * * /bin/bash ${ABS_SERVER_DIR}/backup.sh >/dev/null 2>&1"
+
+    (crontab -l 2>/dev/null | grep -F "${ABS_SERVER_DIR}/backup.sh") && echo "⚠️ Cron backup already exists." || {
+        (crontab -l 2>/dev/null; echo "$CRON_CMD") | crontab -
+        echo "✅ Backup scheduled for every 4 hours."
+    }
+}
+
 install_minecraft_server() {
     # Check for jq
     if ! command -v jq &> /dev/null; then
@@ -344,6 +431,7 @@ install_minecraft_server() {
     create_restart_script
     create_forcekill_script
     create_uninstall_script
+    create_backup_system
 }
 
 # ==========================================
@@ -362,9 +450,13 @@ if [ ! -z "$DIR_NAME" ]; then
     echo "Creating folder '$DIR_NAME'..."
     mkdir -p "$DIR_NAME"
     cd "$DIR_NAME" || exit
+
     echo "✅ Switched to $(pwd)"
 else
-    echo "⚠️  Installing in CURRENT directory: $(pwd)"
+    DEFAULT_DIR=mc-server
+    mkdir -p "$DEFAULT_DIR"
+    cd "$DEFAULT_DIR" || exit
+    echo "⚠️  Installing in CURRENT directory: $DEFAULT_DIR"
 fi
 echo ""
 
