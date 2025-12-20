@@ -132,6 +132,8 @@ echo ""
 read -p "❓ Download latest PaperMC server file now? (y/n): " RUN_UPDATE
 if [[ "$RUN_UPDATE" =~ ^[Yy]$ ]]; then
     ./update.sh
+    echo "Remember to run java -Xmx2G -jar server.jar nogui"
+    echo "to generato config files and accept the eula by editing the eula.txt file."
 fi
 
 echo ""
