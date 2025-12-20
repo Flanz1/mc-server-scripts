@@ -166,7 +166,7 @@ if [ "\$CONFIRM" != "delete" ]; then
 fi
 
 echo "🛑 Stopping server if running..."
-./stop.sh 2>/dev/null
+./forcekill.sh.sh 2>/dev/null
 
 echo "🧹 Removing Cron jobs (Auto-Start & Backups)..."
 # This greps for the current directory path and removes those lines from crontab
@@ -183,7 +183,43 @@ chmod +x uninstall.sh
 echo "✅ Created uninstall.sh"
 
 # ==========================================
-# 9. Finalize
+# 9. Create forcekill.sh (Emergency Stop)
+# ==========================================
+cat << EOF > forcekill.sh
+#!/bin/bash
+
+SCREEN_NAME="$SCREEN_NAME"
+JAR_FILE="$JAR_FILE"
+
+echo "☠️  EMERGENCY FORCE KILL INITIATED"
+echo "-----------------------------------------------------"
+echo "⚠️  WARNING: This performs a hard 'kill -9'."
+echo "   - World data will NOT be saved."
+echo "   - Player inventories may revert."
+echo "   - Use ONLY if the server is completely frozen."
+echo "-----------------------------------------------------"
+echo ""
+read -p "Type 'kill' to confirm: " CONFIRM
+
+if [ "\$CONFIRM" != "kill" ]; then
+    echo "❌ Aborted. Stay safe."
+    exit 1
+fi
+
+echo "🔌 Killing the Screen session (Stopping the restart loop)..."
+screen -S \$SCREEN_NAME -X quit 2>/dev/null
+
+echo "🔫 Nuking any lingering Java processes..."
+# This finds any process matching your jar name and kills it instantly
+pkill -9 -f "\$JAR_FILE"
+
+echo "✅ Server has been terminated."
+EOF
+chmod +x forcekill.sh
+echo "✅ Created forcekill.sh"
+
+# ==========================================
+# 10. Finalize
 # ==========================================
 chmod +x start.sh stop.sh restart.sh update.sh
 
