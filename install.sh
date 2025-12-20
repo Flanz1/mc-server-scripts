@@ -28,6 +28,316 @@ chmod +x update.sh
 echo "✅ Created update.sh (PaperMC)"
 }
 
+# ==========================================
+# 🌍 Global Command: 'mcserver'
+# ==========================================
+setup_global_command() {
+    local NAME="$1"
+    local PATH="$2"
+    local REGISTRY="$HOME/.mc_registry"
+    local BIN_PATH="/usr/local/bin/mcserver"
+
+    echo "--> Registering global command..."
+
+    # 1. Create/Update the Registry File
+    # Format: SERVER_NAME|SERVER_PATH
+    if [ ! -f "$REGISTRY" ]; then touch "$REGISTRY"; fi
+
+    # Remove old entry if it exists (to avoid duplicates), then append new one
+    grep -v "^$NAME|" "$REGISTRY" > "${REGISTRY}.tmp" && mv "${REGISTRY}.tmp" "$REGISTRY"
+    echo "$NAME|$PATH" >> "$REGISTRY"
+
+    # 2. Create the Global Script (Only if it doesn't exist or we want to update it)
+    # We use sudo tee because /usr/local/bin requires root permissions
+    if [ ! -f "$BIN_PATH" ] || grep -q "MC_REGISTRY" "$BIN_PATH"; then
+        cat << 'EOF' | sudo tee "$BIN_PATH" > /dev/null
+#!/bin/bash
+REGISTRY="$HOME/.mc_registry"
+
+# --- HELPER: LIST SERVERS ---
+list_servers() {
+    echo "Registered Servers:"
+    echo "-------------------"
+    if [ ! -s "$REGISTRY" ]; then
+        echo "No servers found."
+        return
+    fi
+    # Read file, print formatted columns (Name -> Path)
+    column -t -s '|' "$REGISTRY" | sed 's/^/  - /'
+    echo "-------------------"
+}
+
+# --- MODE 1: LIST ---
+if [ "$1" == "list" ]; then
+    list_servers
+    exit 0
+fi
+
+# --- MODE 2: SPECIFIC SERVER ---
+TARGET_NAME="$1"
+
+# If no argument provided, show interactive menu
+if [ -z "$TARGET_NAME" ]; then
+    echo "Select a server to manage:"
+    # Read registry into array
+    mapfile -t SERVERS < <(cut -d'|' -f1 "$REGISTRY")
+
+    if [ ${#SERVERS[@]} -eq 0 ]; then
+        echo "No servers registered."
+        exit 1
+    fi
+
+    select s in "${SERVERS[@]}"; do
+        if [ -n "$s" ]; then
+            TARGET_NAME="$s"
+            break
+        else
+            echo "Invalid selection."
+        fi
+    done
+fi
+
+# Find the path for the selected server
+TARGET_PATH=$(grep "^$TARGET_NAME|" "$REGISTRY" | cut -d'|' -f2 | head -n 1)
+
+if [ -z "$TARGET_PATH" ]; then
+    echo "Error: Server '$TARGET_NAME' not found in registry."
+    list_servers
+    exit 1
+fi
+
+if [ ! -d "$TARGET_PATH" ]; then
+    echo "Error: Directory '$TARGET_PATH' no longer exists."
+    exit 1
+fi
+
+# Launch Dashboard
+cd "$TARGET_PATH" || exit
+if [ -f "./dashboard.sh" ]; then
+    ./dashboard.sh
+else
+    echo "Error: dashboard.sh not found in $TARGET_PATH"
+fi
+EOF
+        # Make it executable
+        sudo chmod +x "$BIN_PATH"
+        echo "✅ Global command 'mcserver' installed/updated."
+    fi
+
+    echo "✅ Server '$NAME' registered successfully."
+}
+
+install_dashboard(){
+cat << 'EOF' > dashboard.sh
+#!/bin/bash
+
+# ==============================================================================
+# 🎛️ MINECRAFT SERVER DASHBOARD (Centered & Responsive)
+# ==============================================================================
+
+# --- CONFIGURATION ---
+SERVER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# --- TPUT STYLING ---
+BOLD=$(tput bold); NORM=$(tput sgr0)
+RED=$(tput setaf 1); GREEN=$(tput setaf 2); YELLOW=$(tput setaf 3)
+BLUE=$(tput setaf 4); CYAN=$(tput setaf 6); WHITE=$(tput setaf 7); GRAY=$(tput setaf 8)
+
+# --- UI CONSTANTS ---
+# We need to know the exact width/height of our "box" to center it.
+# Based on the longest line in draw_ui + padding
+UI_WIDTH=55
+UI_HEIGHT=18
+
+# --- AUTO-DETECT SCREEN ---
+detect_screen() {
+    DETECTED_SCREEN=$(screen -ls | grep -E "minecraft|mcserver|Forge|Paper" | awk '{print $1}' | cut -d. -f2 | head -n 1)
+    if [ -z "$DETECTED_SCREEN" ]; then
+        DETECTED_SCREEN=$(screen -ls | grep -P '^\t\d+\.' | awk '{print $1}' | cut -d. -f2 | head -n 1)
+    fi
+    SCREEN_NAME="${DETECTED_SCREEN:-minecraft}"
+}
+
+# --- PROCESS FINDER ---
+find_java_pid() {
+    JAVA_PID=""
+    for pid in $(pgrep -u "$(whoami)" java); do
+        PROCESS_DIR=$(readlink -f /proc/$pid/cwd)
+        if [[ "$PROCESS_DIR" == "$SERVER_DIR" ]]; then
+            JAVA_PID=$pid
+            break
+        fi
+    done
+}
+
+# --- STATS ENGINE ---
+get_server_stats() {
+    detect_screen
+    if screen -list | grep -q "$SCREEN_NAME"; then
+        STATUS="${GREEN}${BOLD}ONLINE${NORM}"
+        find_java_pid
+
+        if [ -n "$JAVA_PID" ]; then
+            STATS=$(ps -p $JAVA_PID -o %cpu=,rss=)
+            CPU_RAW=$(echo "$STATS" | awk '{print $1}')
+            RAM_KB=$(echo "$STATS" | awk '{print $2}')
+            RAM_MB=$((RAM_KB / 1024))
+
+            # RAM Bar (Assume 12GB scale)
+            MAX_RAM_VISUAL=12288
+            RAM_PERCENT=$(( (RAM_MB * 100) / MAX_RAM_VISUAL ))
+            [[ $RAM_PERCENT -gt 100 ]] && RAM_PERCENT=100
+            draw_bar $RAM_PERCENT
+            RAM_BAR=$BAR_OUTPUT
+
+            # CPU Bar
+            CPU_INT=${CPU_RAW%.*}
+            [[ $CPU_INT -gt 100 ]] && CPU_VISUAL=100 || CPU_VISUAL=$CPU_INT
+            draw_bar $CPU_VISUAL
+            CPU_BAR=$BAR_OUTPUT
+
+            STATS_TEXT_1="${WHITE}RAM:${NORM} [${CYAN}${RAM_BAR}${NORM}] ${WHITE}${RAM_MB}MB${NORM}"
+            STATS_TEXT_2="${WHITE}CPU:${NORM} [${GREEN}${CPU_BAR}${NORM}] ${WHITE}${CPU_RAW}%${NORM}"
+            PID_TEXT="${GRAY}(PID: $JAVA_PID)${NORM}"
+        else
+            STATUS="${YELLOW}${BOLD}STARTING${NORM}"
+            STATS_TEXT_1="${YELLOW}Waiting for Java...${NORM}"
+            STATS_TEXT_2=""
+            PID_TEXT=""
+        fi
+    else
+        STATUS="${RED}${BOLD}OFFLINE${NORM}"
+        STATS_TEXT_1="${GRAY}Server is stopped.${NORM}"
+        STATS_TEXT_2=""
+        PID_TEXT=""
+    fi
+}
+
+draw_bar() {
+    local PERCENT=$1; local SIZE=20
+    local FILLED=$(( (PERCENT * SIZE) / 100 ))
+    local EMPTY=$(( SIZE - FILLED ))
+    BAR_OUTPUT=""
+    for ((i=0; i<FILLED; i++)); do BAR_OUTPUT="${BAR_OUTPUT}#"; done
+    for ((i=0; i<EMPTY; i++)); do BAR_OUTPUT="${BAR_OUTPUT}."; done
+}
+
+# --- DRAWING ENGINE (Centered) ---
+draw_ui() {
+    get_server_stats
+
+    # Calculate Center Coordinates
+    TERM_COLS=$(tput cols)
+    TERM_LINES=$(tput lines)
+
+    # Math: (TermWidth - BoxWidth) / 2
+    PAD_LEFT=$(( (TERM_COLS - UI_WIDTH) / 2 ))
+    PAD_TOP=$(( (TERM_LINES - UI_HEIGHT) / 2 ))
+
+    # Ensure we don't go negative if terminal is too small
+    [[ $PAD_LEFT -lt 0 ]] && PAD_LEFT=0
+    [[ $PAD_TOP -lt 0 ]] && PAD_TOP=0
+
+    # Helper function to print a line at specific offset
+    # Usage: print_line "RowIndex" "Content"
+    print_line() {
+        local ROW=$1
+        local CONTENT=$2
+        tput cup $((PAD_TOP + ROW)) $PAD_LEFT
+        echo -e "$CONTENT"
+    }
+
+    # Draw the Box
+    print_line 0  "${BLUE}=======================================================${NORM}"
+    print_line 1  "       👾  ${BOLD}MINECRAFT SERVER DASHBOARD${NORM}  👾"
+    print_line 2  "${BLUE}=======================================================${NORM}"
+    print_line 3  " Path:      ${GRAY}${SERVER_DIR}${NORM}"
+    print_line 4  " Session:   ${CYAN}${SCREEN_NAME}${NORM} $PID_TEXT"
+    print_line 5  " Status:    $STATUS"
+    print_line 6  ""
+    print_line 7  " $STATS_TEXT_1"
+    print_line 8  " $STATS_TEXT_2"
+    print_line 9  ""
+    print_line 10 "${BLUE}-------------------------------------------------------${NORM}"
+    print_line 11 "   ${GREEN}[1]${NORM} ▶ Start Server      ${YELLOW}[4]${NORM} 💾 Force Backup"
+    print_line 12 "   ${RED}[2]${NORM} ■ Stop Server       ${YELLOW}[5]${NORM} 📦 Install Modpack"
+    print_line 13 "   ${CYAN}[3]${NORM} > Open Console      ${YELLOW}[6]${NORM} 🌐 Playit.gg Status"
+    print_line 14 "   ${RED}[Q]${NORM} Quit"
+    print_line 15 "${BLUE}=======================================================${NORM}"
+    print_line 16 " ${WHITE}Live Monitoring...${NORM}                             "
+
+    # Move cursor out of the way (bottom right)
+    tput cup $TERM_LINES $TERM_COLS
+}
+
+# --- INIT ---
+tput civis; trap "tput cnorm; clear; exit" EXIT; clear
+
+# --- MAIN LOOP ---
+while true; do
+    draw_ui
+    read -t 1 -n 1 -s key
+    if [ -n "$key" ]; then
+        case $key in
+            1)
+                clear; echo -e "\n${GREEN}--> Starting Server...${NORM}"
+                if [ -f "./start.sh" ]; then ./start.sh; elif [ -f "./run.sh" ]; then ./run.sh; else echo "No start script found!"; fi
+                read -p "Press Enter..."; clear ;;
+            2)
+                clear; echo -e "\n${RED}--> Stopping Server...${NORM}"
+                ./stop.sh
+		read -p "Press Enter..."; clear ;;
+            3)
+                tput cnorm; clear; echo -e "${CYAN}--> Opening Console... (Ctrl+A, D to exit)${NORM}"; sleep 1
+                screen -r "$SCREEN_NAME"; tput civis; clear ;;
+            4)
+                clear; echo -e "\n${YELLOW}--> Backup...${NORM}"; [ -f "./backup.sh" ] && ./backup.sh; read -p "Done."; clear ;;
+            5)
+                tput cnorm; clear; [ -f "./install_modpack.sh" ] && ./install_modpack.sh; read -p "Done."; tput civis; clear ;;
+            6)
+                clear; echo -e "\n${CYAN}--> Playit.gg${NORM}"; sudo systemctl status playit --no-pager; read -p "Done."; clear ;;
+            q|Q) exit 0 ;;
+        esac
+    fi
+done
+
+}
+install_playit() {
+    echo -e "--> Installing Playit.gg..."
+
+    # 1. Download Binary
+    curl -L -s https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-linux-amd64 -o playit
+    chmod +x playit
+    sudo mv playit /usr/local/bin/playit
+
+    # 2. Create Systemd Service (Auto-Start)
+    echo -e "--> Creating System Service..."
+    cat << 'EOF' | sudo tee /etc/systemd/system/playit.service > /dev/null
+[Unit]
+Description=Playit.gg Tunnel
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/playit
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # 3. Enable Service
+    sudo systemctl daemon-reload
+    sudo systemctl enable playit
+
+    echo "✅ Playit.gg installed!"
+    echo "----------------------------------------------------"
+    echo "⚠️  ACTION REQUIRED: Run 'playit' manually once to claim this server!"
+    echo "   (After claiming, press Ctrl+C and run 'sudo systemctl start playit')"
+    echo "----------------------------------------------------"
+}
+
 neoforge_update() {
 cat << 'EOF' > update.sh
 #!/bin/bash
@@ -259,7 +569,41 @@ FILE_COUNT=$(ls -p | grep -v / | wc -l)
 
 # If only 1 folder exists and almost no files, move contents out
 if [ "$DIR_COUNT" -eq 1 ] && [ "$FILE_COUNT" -le 2 ]; then
-    SUBFOLDER=$(ls -d */)
+    SUBFOLDER=$(ls -d */)install_playit() {
+    echo -e "--> Installing Playit.gg..."
+
+    # 1. Download Binary
+    curl -L -s https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-linux-amd64 -o playit
+    chmod +x playit
+    sudo mv playit /usr/local/bin/playit
+
+    # 2. Create Systemd Service (Auto-Start)
+    echo -e "--> Creating System Service..."
+    cat << 'EOF' | sudo tee /etc/systemd/system/playit.service > /dev/null
+[Unit]
+Description=Playit.gg Tunnel
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/playit
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # 3. Enable Service
+    sudo systemctl daemon-reload
+    sudo systemctl enable playit
+
+    echo "✅ Playit.gg installed!"
+    echo "----------------------------------------------------"
+    echo "⚠️  ACTION REQUIRED: Run 'playit' manually once to claim this server!"
+    echo "   (After claiming, press Ctrl+C and run 'sudo systemctl start playit')"
+    echo "----------------------------------------------------"
+}
     SUBFOLDER=${SUBFOLDER%/} # remove trailing slash
     echo "--> Moving files out of subfolder: $SUBFOLDER"
     mv "$SUBFOLDER"/* . 2>/dev/null
@@ -418,6 +762,10 @@ install_minecraft_server() {
             chmod +x run.sh
         fi
      fi
+    read -p "Install playit for port tunneling? (y/n): " PLAYIT_CHOICE
+    if [[ "$EULA_CHOICE" =~ ^[Yy]$ ]]; then
+        install_playit
+    fi
     # Auto-EULA
     read -p "Auto-accept EULA? (y/n): " EULA_CHOICE
     if [[ "$EULA_CHOICE" =~ ^[Yy]$ ]]; then
@@ -432,6 +780,8 @@ install_minecraft_server() {
     create_forcekill_script
     create_uninstall_script
     create_backup_system
+    install_dashboard
+    setup_global_command
 }
 
 # ==========================================
