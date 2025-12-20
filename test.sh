@@ -242,7 +242,7 @@ install_minecraft_server() {
         if [ -f "run.sh" ]; then
             chmod +x run.sh
         fi
-
+     fi
     # Auto-EULA
     read -p "Auto-accept EULA? (y/n): " EULA_CHOICE
     if [[ "$EULA_CHOICE" =~ ^[Yy]$ ]]; then
