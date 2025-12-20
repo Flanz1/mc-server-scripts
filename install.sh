@@ -34,7 +34,7 @@ EOF
 # ==========================================
 setup_global_command() {
         local NAME="$1"
-        local PATH="$2"
+        local SERVER_PATH="$2"
         local REGISTRY="$HOME/.mc_registry"
         local BIN_PATH="/usr/local/bin/mcserver"
 
