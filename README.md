@@ -30,11 +30,9 @@ A robust, all-in-one Bash script to set up, manage, and maintain Minecraft serve
 ## 🎮 Server Types
 
 ### 1. PaperMC (High Performance)
-Best for vanilla-like survival, SMPs, and plugin support.
 * **Updater:** The generated `update.sh` will automatically check the PaperMC API and upgrade you to the latest build of your version.
 
-### 2. NeoForge (Modded / ATM10)
-Best for heavy modpacks like *All The Mods 10*.
+### 2. NeoForge (Modded)
 * **Installation:** Asks for the specific NeoForge version (e.g., `21.1.73`) to match your modpack.
 * **RAM Management:** Automatically injects your RAM selection into `user_jvm_args.txt` so the server actually uses it.
 * **Updater:** The `update.sh` allows you to switch NeoForge loader versions easily if the modpack updates.
