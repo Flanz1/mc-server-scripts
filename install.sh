@@ -1,6 +1,6 @@
 #!/bin/bash
 SCRIPT_PATH=$(readlink -f "$0")
-UPDATE_URL="https://raw.githubusercontent.com/Flanz1E/mc-server-scripts/main/install.sh"
+UPDATE_URL="https://raw.githubusercontent.com/Flanz1/mc-server-scripts/main/install.sh"
 # ...
 # ==========================================
 # Universal Minecraft Server Installer
