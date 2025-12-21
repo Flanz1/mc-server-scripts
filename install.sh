@@ -217,49 +217,42 @@ EOF
 }
 
 create_stop_script() {
-    cat << 'EOF' > stop.sh
-#!/bin/bash
-SERVER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    cat << 'EOF' > stop.sh#!/bin/bash
+# Settings
+SCREEN_NAME="minecraft"
+MAX_WAIT=30
 
-# Detect Screen
-DETECTED_SCREEN=$(screen -ls | grep -E "minecraft|mcserver|Forge|Paper" | awk '{print $1}' | cut -d. -f2 | head -n 1)
-if [ -z "$DETECTED_SCREEN" ]; then DETECTED_SCREEN=$(screen -ls | grep -P '^\t\d+\.' | awk '{print $1}' | cut -d. -f2 | head -n 1); fi
-SCREEN_NAME="${DETECTED_SCREEN:-minecraft}"
+echo "🛑 Sending stop command to Minecraft server..."
 
-if screen -list | grep -q "$SCREEN_NAME"; then
-    echo "🛑 Sending STOP signal..."
+# 1. Send the graceful stop command to the Minecraft console
+screen -S $SCREEN_NAME -p 0 -X stuff "stop^M"
 
-    # Send "stop" + Enter safely using eval/printf
-    screen -S "$SCREEN_NAME" -p 0 -X eval 'stuff "stop\015"'
+echo "⏳ Waiting for server to save and close (max $MAX_WAIT seconds)..."
 
-    echo "⏳ Waiting for server to close (Max 30s)..."
+# 2. Wait loop
+# We wait to give the server time to save chunks to disk.
+# If the screen closes itself early, great! If not, we wait the full duration.
+count=0
+while screen -list | grep -q "$SCREEN_NAME"; do
+    if [ $count -ge $MAX_WAIT ]; then
+        echo "⚠️  Time is up! The screen session is still active."
+        break
+    fi
+    sleep 1
+    count=$((count+1))
+    echo -ne "Waiting... $count/$MAX_WAIT\r"
+done
+echo "" # New line after the counter
 
-    COUNT=0
-    while screen -list | grep -q "$SCREEN_NAME"; do
-        sleep 1
-        echo -n "."
-        ((COUNT++))
+# 3. Handle the remaining screen session
+if screen -list | grep -q "$SCREEN_NAME"; do
+    echo "🧹 Screen session is still running (likely a restart loop or shell)."
+    echo "✨ Terminating the screen session now..."
 
-        # Timeout Logic
-        if [ $COUNT -ge 30 ]; then
-            echo ""
-            echo "⚠️  Server is stuck. Switching to Force Kill..."
-            if [ -f "./forcekill.sh" ]; then
-                ./forcekill.sh
-            else
-                # Fallback surgical kill
-                JAVA_PID=$(pgrep -f "java.*$SERVER_DIR")
-                [ -n "$JAVA_PID" ] && kill -9 "$JAVA_PID"
-                screen -X -S "$SCREEN_NAME" quit
-                screem
-            fi
-            break
-        fi
-    done
-    echo ""
-    echo "✅ Server stopped."
+    # Send the 'quit' command to screen, which kills the session cleanly
+    screen -S $SCREEN_NAME -X quit
 else
-    echo "⚠️  Server is not running."
+    echo "✅ Server and screen session stopped gracefully!"
 fi
 EOF
     chmod +x stop.sh
