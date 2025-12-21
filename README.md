@@ -44,7 +44,7 @@ When you open the dashboard, you can use these keys:
 * `[2]` **Stop:** Gracefully stops the server (waits for saves).
 * `[3]` **Console:** View the live server logs (Ctrl+A, D to detach).
 * `[4]` **Force Backup:** Trigger a manual backup immediately.
-* `[6]` **Update:** Safely updates server JAR/Modpack.
+* `[6]` **Update:** Safely updates server JAR.
 * `[R]` **Restore:** Pick a previous backup to restore from.
 * `[M]` **Modpack:** Install a new modpack zip from a link.
 
