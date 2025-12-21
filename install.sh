@@ -607,34 +607,37 @@ get_server_stats() {
         STATUS="${GREEN}${BOLD}ONLINE${NORM}"
         find_java_pid
         if [ -n "$JAVA_PID" ]; then
+            # Get Stats
             STATS=$(ps -p $JAVA_PID -o %cpu=,rss=)
             CPU_RAW=$(echo "$STATS" | awk '{print $1}')
             RAM_KB=$(echo "$STATS" | awk '{print $2}')
-            RAM_MB=$((RAM_KB / 1024))
 
             # --- RAM Logic ---
+            RAM_MB=$((RAM_KB / 1024))
             MAX_RAM_VISUAL=12288
             RAM_PERCENT=$(( (RAM_MB * 100) / MAX_RAM_VISUAL ))
             [[ $RAM_PERCENT -gt 100 ]] && RAM_PERCENT=100
             R_FILL=$(( (RAM_PERCENT * 18) / 100 )); R_EMPTY=$(( 18 - R_FILL ))
             RAM_BAR=""; for ((i=0; i<R_FILL; i++)); do RAM_BAR="${RAM_BAR}#"; done; for ((i=0; i<R_EMPTY; i++)); do RAM_BAR="${RAM_BAR}."; done
 
-            # --- CPU Logic (Clamped) ---
-            CPU_INT=${CPU_RAW%.*} # Remove decimals for integer math
-
-            if [[ "$CPU_INT" -ge 100 ]]; then
-                CPU_VISUAL=100
-                CPU_DISPLAY="100.0"  # Cap the text at 100.0%
+            # --- CPU Logic (Normalized by Cores) ---
+            CORES=$(nproc)
+            CPU_INT=${CPU_RAW%.*} # Integer only
+            # Divide by cores to get "Total System" usage equivalent
+            if [ "$CORES" -gt 1 ]; then
+                CPU_NORMALIZED=$(( CPU_INT / CORES ))
             else
-                CPU_VISUAL=$CPU_INT
-                CPU_DISPLAY=$CPU_RAW # Show actual value
+                CPU_NORMALIZED=$CPU_INT
             fi
 
-            C_FILL=$(( (CPU_VISUAL * 18) / 100 )); C_EMPTY=$(( 18 - C_FILL ))
+            C_FILL=$(( (CPU_NORMALIZED * 18) / 100 )); C_EMPTY=$(( 18 - C_FILL ))
+            [[ $C_FILL -gt 18 ]] && C_FILL=18; [[ $C_FILL -lt 0 ]] && C_FILL=0
+            [[ $C_EMPTY -lt 0 ]] && C_EMPTY=0
+
             CPU_BAR=""; for ((i=0; i<C_FILL; i++)); do CPU_BAR="${CPU_BAR}#"; done; for ((i=0; i<C_EMPTY; i++)); do CPU_BAR="${CPU_BAR}."; done
 
             STATS_TEXT_1="${WHITE}RAM:${NORM} [${CYAN}${RAM_BAR}${NORM}] ${WHITE}${RAM_MB}MB${NORM}"
-            STATS_TEXT_2="${WHITE}CPU:${NORM} [${GREEN}${CPU_BAR}${NORM}] ${WHITE}${CPU_DISPLAY}%${NORM}"
+            STATS_TEXT_2="${WHITE}CPU:${NORM} [${GREEN}${CPU_BAR}${NORM}] ${WHITE}${CPU_NORMALIZED}%${NORM}"
             PID_TEXT="${GRAY}(PID: $JAVA_PID)${NORM}"
         else
             STATUS="${YELLOW}${BOLD}STARTING${NORM}"; STATS_TEXT_1="${YELLOW}Waiting for Java...${NORM}"; STATS_TEXT_2=""; PID_TEXT=""
@@ -688,7 +691,7 @@ while true; do
             2) clear; echo -e "\n${RED}--> Stopping...${NORM}"; ./stop.sh; read -p "Press Enter..."; clear ;;
             3) tput cnorm; clear; echo -e "${CYAN}--> Console... (Ctrl+A, D to exit)${NORM}"; sleep 1; screen -r "$SCREEN_NAME"; tput civis; clear ;;
             4) clear; echo -e "\n${YELLOW}--> Backup...${NORM}"; [ -f "./backup.sh" ] && ./backup.sh; read -p "Done."; clear ;;
-            5) clear; echo -e "\n${RED}--> Uninstalling...${NORM}"; [ -f "./uninstall.sh" ] && ./uninstall.sh; read -p "Press Enter..."; exit 0;;
+            5) clear; echo -e "\n${RED}--> Uninstalling...${NORM}"; [ -f "./uninstall.sh" ] && ./uninstall.sh; read -p "Press Enter..."; clear ;;
             6) tput cnorm; clear; [ -f "./install_modpack.sh" ] && ./install_modpack.sh; read -p "Done."; tput civis; clear ;;
             7) clear; echo -e "\n${CYAN}--> Playit.gg${NORM}"; sudo systemctl status playit --no-pager; read -p "Done."; clear ;;
             8) clear; echo -e "\n${MAGENTA}--> Toggling On-Boot Start...${NORM}"; toggle_autostart; read -p "Done."; clear ;;
@@ -701,6 +704,7 @@ EOF
     chmod +x dashboard.sh
     echo "✅ Dashboard installed."
 }
+
 
 install_minecraft_server() {
     # Check for jq
