@@ -218,20 +218,35 @@ EOF
 
 create_stop_script() {
     cat << 'EOF' > stop.sh#!/bin/bash
+#!/bin/bash
+
 # Settings
 SCREEN_NAME="minecraft"
 MAX_WAIT=30
+BACKUP_SCRIPT="./backup.sh"
 
+# --- 1. Run Pre-Shutdown Backup ---
+if [ -f "$BACKUP_SCRIPT" ]; then
+    echo "💾 Backup script found! Starting pre-shutdown backup..."
+
+    # Run the backup script and wait for it to finish
+    # We use 'bash' explicitly to ensure it runs
+    bash "$BACKUP_SCRIPT"
+
+    echo "✅ Backup complete. Proceeding with shutdown sequence."
+else
+    echo "⚠️  No backup.sh found in this folder. Skipping backup step."
+fi
+
+echo "------------------------------------------------"
+
+# --- 2. Stop the Server ---
 echo "🛑 Sending stop command to Minecraft server..."
-
-# 1. Send the graceful stop command to the Minecraft console
 screen -S $SCREEN_NAME -p 0 -X stuff "stop^M"
 
 echo "⏳ Waiting for server to save and close (max $MAX_WAIT seconds)..."
 
-# 2. Wait loop
-# We wait to give the server time to save chunks to disk.
-# If the screen closes itself early, great! If not, we wait the full duration.
+# --- 3. Wait Loop ---
 count=0
 while screen -list | grep -q "$SCREEN_NAME"; do
     if [ $count -ge $MAX_WAIT ]; then
@@ -242,14 +257,12 @@ while screen -list | grep -q "$SCREEN_NAME"; do
     count=$((count+1))
     echo -ne "Waiting... $count/$MAX_WAIT\r"
 done
-echo "" # New line after the counter
+echo ""
 
-# 3. Handle the remaining screen session
+# --- 4. Terminate Screen Session ---
 if screen -list | grep -q "$SCREEN_NAME"; do
-    echo "🧹 Screen session is still running (likely a restart loop or shell)."
+    echo "🧹 Screen session is still running (likely the restart loop)."
     echo "✨ Terminating the screen session now..."
-
-    # Send the 'quit' command to screen, which kills the session cleanly
     screen -S $SCREEN_NAME -X quit
 else
     echo "✅ Server and screen session stopped gracefully!"
