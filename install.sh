@@ -633,7 +633,6 @@ draw_ui() {
     print_line 12 "   ${RED}[2]${NORM} ■ Stop Server       ${YELLOW}[6]${NORM} 🌐 Playit.gg Status"
     print_line 13 "   ${CYAN}[3]${NORM} > Open Console      ${MAGENTA}[7]${NORM} ⏰ Toggle Auto-Start"
     print_line 14 "   ${YELLOW}[4]${NORM} 💾 Force Backup     ${RED}[8]${NORM} ❌ Uninstall"
-    #                                              👆 Fixed spacing (5 spaces)
     print_line 15 "   ${RED}[Q]${NORM} Quit"
     print_line 16 "${BLUE}============================================================${NORM}"
     print_line 17 " ${WHITE}Live Monitoring...${NORM}                                  "
