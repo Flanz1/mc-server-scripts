@@ -569,7 +569,7 @@ check_autostart() {
     fi
 }
 
-toggle_autostart() {
+toggle_autostart() {https://mediafilez.forgecdn.net/files/7294/979/ServerFiles-5.3.1.zip
     if [ -f "$SERVER_DIR/run.sh" ]; then START_SCRIPT="run.sh"; else START_SCRIPT="start.sh"; fi
     CRON_CMD="@reboot /usr/bin/screen -dmS $SCREEN_NAME /bin/bash $SERVER_DIR/$START_SCRIPT"
 
@@ -828,7 +828,7 @@ install_minecraft_server
 
 echo ""
 echo "🎉 Installation Complete!"
-echo "👉 Use ./start.sh to launch your server."
+echo "👉 Use mcserver $SERVER_NAME to launch your server."
 
 # ==========================================
 # Self-Cleanup
