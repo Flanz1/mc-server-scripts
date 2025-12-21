@@ -522,6 +522,7 @@ EOF
 # 3. Dashboard Installer
 install_dashboard() {
 cat << EOF > dashboard.sh
+
 #!/bin/bash
 SERVER_DIR="\$( cd "\$( dirname "\${BASH_SOURCE[0]}" )" && pwd )"
 UPDATE_URL="$UPDATE_URL"
@@ -648,7 +649,6 @@ perform_update() {
     echo "-----------------------------------"
     echo "Downloading latest installer from Git..."
 
-    # -f flag added here to prevent downloading 404 HTML pages
     if curl -L -s -f -o install.sh "\$UPDATE_URL"; then
         chmod +x install.sh
         echo "Running update..."
@@ -734,15 +734,21 @@ draw_ui() {
 }
 
 # --- MAIN LOOP ---
-# smcup: Save Screen (Alt Buffer) | civis: Hide Cursor | stty -echo: No Input Noise
 tput smcup; tput civis; stty -echo
 trap "tput rmcup; tput cnorm; stty echo; exit" EXIT
 clear
 
 while true; do
     draw_ui
-    # Silent read (-s) matches our echo-off logic
     read -t 1 -n 1 -s key
+
+    # 🛡️ INPUT SANITIZER
+    # If key is ESC (start of arrow key sequence), drain buffer immediately
+    if [[ "\$key" == \$'\e' ]]; then
+        read -t 0.001 -n 3 -s trash
+        key=""
+    fi
+
     if [ -n "\$key" ]; then
         case \$key in
             1) clear; echo -e "\n\${GREEN}--> Starting...\${NORM}"; if [ -f "./start.sh" ]; then ./start.sh; elif [ -f "./run.sh" ]; then ./run.sh; fi; read -p "Press Enter..."; clear ;;
