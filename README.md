@@ -1,75 +1,70 @@
-# 🛠️ Universal Minecraft Server Installer
+# 🛠️ Universal Minecraft Server Manager
 
-A robust, all-in-one Bash script to set up, manage, and maintain Minecraft servers on **Debian/Ubuntu** systems. Designed for performance and ease of use.
+A powerful, all-in-one shell script to install, manage, and protect your Minecraft server (PaperMC or NeoForge). It comes with a TUI Dashboard, auto-backups, crash detection, and smart update tools.
 
-## Features
+## ✨ Key Features
 
-* **Multi-Platform Support:**
-    * **PaperMC:** Automatically fetches the absolute latest build from the API.
-    * **NeoForge:** Installs specific versions (perfect for modpacks like *All The Mods 10*).
-* **Smart Automation:**
-    * Installs dependencies (Java 21, Screen, JQ) automatically.
-    * Handles "Headless" installation for NeoForge (no GUI needed).
-    * **Auto-Cleaner:** Removes NeoForge clutter (`run.bat`, logs) and syncs RAM settings to `user_jvm_args.txt`.
-* **Management Suite:** Generates custom helper scripts for easy management (`start`, `stop`, `update`, `uninstall`).
+* **🚀 Universal Installer:** Sets up **PaperMC** or **NeoForge** (Modpacks) with Java 21 automatically.
+* **🎮 TUI Dashboard:** A visual menu to control everything without memorizing commands.
+* **💾 Smart Backups:** Automated backups every 4 hours (excludes heavy logs/backups to save space).
+* **⏪ Interactive Restore:** Rollback your server to a previous state with a simple menu.
+* **🔄 Safe Updates:** Wraps the update process in a "Backup -> Stop -> Update -> Restart" safety loop.
+* **🛡️ Crash Detection:** Automatically restarts the server if it crashes or stops unexpectedly.
+* **🌐 Playit.gg Support:** Built-in installer for easy port forwarding.
 
----
+## 📥 Installation
 
-##  Quick Start
+Run this one-liner on your Linux machine (Ubuntu/Debian recommended):
 
-1.  **One command to download and install:**
-   * ```Bash
-      wget -qO install.sh https://raw.githubusercontent.com/Flanz1/mc-server-scripts/main/install.sh && chmod +x install.sh && ./install.sh
-2.  **Follow the prompts:**
-    * Choose Server Type: `1` for PaperMC, `2` for NeoForge.
-    * Set RAM (e.g., `8G`).
-    * Accept EULA.
+```bash
+    wget -qO install.sh https://raw.githubusercontent.com/Flanz1/mc-server-scripts/main/install.sh && chmod +x install.sh && ./install.sh
 
----
+```
 
-## 🎮 Server Types
+Follow the on-screen prompts to select your server type (Paper/NeoForge), set RAM, and choose a folder name.
 
-### 1. PaperMC (High Performance)
-* **Updater:** The generated `update.sh` will automatically check the PaperMC API and upgrade you to the latest build of your version.
+## 🖥️ How to Use
 
-### 2. NeoForge (Modded)
-* **Installation:** Asks for the specific NeoForge version (e.g., `21.1.73`) to match your modpack.
-* **RAM Management:** Automatically injects your RAM selection into `user_jvm_args.txt` so the server actually uses it.
-* **Updater:** The `update.sh` allows you to switch NeoForge loader versions easily if the modpack updates.
+### 1. The Global Command
 
----
+Once installed, you don't need to remember where you put the server. Just type:
 
-## 3. Management Scripts
+```bash
+mcserver list           # List all installed servers
+mcserver <folder_name>  # Open the Dashboard for that server
+mcserver # Open a selection screen for all installed servers
 
-Once installed, these scripts will be available inside the folder to manage your server:
+```
 
-| Command | Description |
-| :--- | :--- |
-| `./start.sh` | Starts the server in a background `screen` session. |
-| `./stop.sh` | Safely stops the server and waits for it to save. |
-| `./restart.sh` | Runs `stop.sh` then `start.sh`. |
-| `./update.sh` | Updates the server jar/loader (Paper or NeoForge). |
-| `./forcekill.sh` | **Emergency only.** Kills the process immediately (data loss risk). |
-| `./uninstall.sh` | **Danger.** Deletes the entire server folder and removes cron jobs. |
-| `./dashboard.sh` | The nifty TUI Dashboard to manage your server. |
+### 2. The Dashboard Menu
 
-## 4. Managements Commands
+When you open the dashboard, you can use these keys:
 
-These commands are currently available
+* `[1]` **Start:** Launches the server in a background screen.
+* `[2]` **Stop:** Gracefully stops the server (waits for saves).
+* `[3]` **Console:** View the live server logs (Ctrl+A, D to detach).
+* `[4]` **Force Backup:** Trigger a manual backup immediately.
+* `[6]` **Update:** Safely updates server JAR/Modpack.
+* `[R]` **Restore:** Pick a previous backup to restore from.
+* `[M]` **Modpack:** Install a new modpack zip from a link.
 
-| Command | Description |
-| :--- | :--- |
-| `mcserver` | Opens the interactive server selector menu. |
-| `mcserver list` | Displays a table of all registered servers and their paths. |
-| `mcserver <name>` | Instantly launches the dashboard for the specific server (e.g., `mcserver Survival`). |
-| `mcserver -h` | Displays the help message and usage guide. |
----
-## 5. Install modpacks
+## 📂 File Structure
 
-Should you select the NeoForge installation, `install_modpacks.sh` will become available.
-A smart mod installation script.
+Your server folder will contain these helpful scripts:
 
-## 📋 Requirements
+| File | Description |
+| --- | --- |
+| `dashboard.sh` | The main menu interface. |
+| `start.sh` | Starts the server with an infinite restart loop (Crash protection). |
+| `stop.sh` | safely stops the server (runs backup first, then `stop` command). |
+| `restart.sh` | Runs stop.sh, waits, then runs start.sh. |
+| `backup.sh` | Compresses the world/files (ignores logs) to `./backups`. |
+| `restore.sh` | Interactive menu to unzip a backup and overwrite current files. |
+| `server_update.sh` | The "Safe Wrapper" that backs up before updating. |
+| `forcekill.sh` | Emergency script. Kills the specific Java PID for this folder. |
 
-* **OS:** Debian 10+ or Ubuntu 20.04+
-* **Permissions:** Root or `sudo` access (to install Java/dependencies).
+## ⚙️ Automation
+
+* **Auto-Start:** The script creates a systemd service so your server boots up when the VPS/PC turns on.
+* **Auto-Backup:** A cron job runs every **4 hours** to keep your world safe.
+* **Auto-Restart:** Configurable daily restart via the Dashboard (Option `[9]`).
