@@ -570,14 +570,10 @@ toggle_autostart() {
 
 # --- DYNAMIC AUTO-RESTART ---
 check_autorestart() {
-    # Find existing cron entry for restart.sh
     EXISTING_CRON=$(crontab -l 2>/dev/null | grep -F "$SERVER_DIR/restart.sh")
-
     if [ -n "$EXISTING_CRON" ]; then
-        # Extract Minute ($1) and Hour ($2)
         MIN=$(echo "$EXISTING_CRON" | awk '{print $1}')
         HOUR=$(echo "$EXISTING_CRON" | awk '{print $2}')
-        # Pad with zero if needed (e.g., 7 -> 07)
         printf -v PRETTY_TIME "%02d:%02d" "$HOUR" "$MIN"
         AUTORESTART_MSG="${GREEN}${BOLD}ON ($PRETTY_TIME)${NORM}"; AUTORESTART_STATE="on"
     else
@@ -596,13 +592,10 @@ toggle_autorestart() {
         read -p "Enter Hour (0-23): " IN_HOUR
         read -p "Enter Minute (0-59): " IN_MIN
 
-        # Validation
         if ! [[ "$IN_HOUR" =~ ^[0-9]+$ ]] || [ "$IN_HOUR" -lt 0 ] || [ "$IN_HOUR" -gt 23 ]; then echo "❌ Invalid Hour."; return; fi
         if ! [[ "$IN_MIN" =~ ^[0-9]+$ ]] || [ "$IN_MIN" -lt 0 ] || [ "$IN_MIN" -gt 59 ]; then echo "❌ Invalid Minute."; return; fi
 
-        # Construct Cron: Minute Hour * * * Command
         CRON_CMD="$IN_MIN $IN_HOUR * * * /bin/bash $SERVER_DIR/restart.sh >/dev/null 2>&1"
-
         (crontab -l 2>/dev/null; echo "$CRON_CMD") | crontab -
         printf "✅ Restart scheduled for %02d:%02d daily.\n" "$IN_HOUR" "$IN_MIN"
     fi
@@ -618,19 +611,30 @@ get_server_stats() {
             CPU_RAW=$(echo "$STATS" | awk '{print $1}')
             RAM_KB=$(echo "$STATS" | awk '{print $2}')
             RAM_MB=$((RAM_KB / 1024))
+
+            # --- RAM Logic ---
             MAX_RAM_VISUAL=12288
             RAM_PERCENT=$(( (RAM_MB * 100) / MAX_RAM_VISUAL ))
             [[ $RAM_PERCENT -gt 100 ]] && RAM_PERCENT=100
-
             R_FILL=$(( (RAM_PERCENT * 18) / 100 )); R_EMPTY=$(( 18 - R_FILL ))
             RAM_BAR=""; for ((i=0; i<R_FILL; i++)); do RAM_BAR="${RAM_BAR}#"; done; for ((i=0; i<R_EMPTY; i++)); do RAM_BAR="${RAM_BAR}."; done
 
-            CPU_INT=${CPU_RAW%.*}; [[ $CPU_INT -gt 100 ]] && CPU_VISUAL=100 || CPU_VISUAL=$CPU_INT
+            # --- CPU Logic (Clamped) ---
+            CPU_INT=${CPU_RAW%.*} # Remove decimals for integer math
+
+            if [[ "$CPU_INT" -ge 100 ]]; then
+                CPU_VISUAL=100
+                CPU_DISPLAY="100.0"  # Cap the text at 100.0%
+            else
+                CPU_VISUAL=$CPU_INT
+                CPU_DISPLAY=$CPU_RAW # Show actual value
+            fi
+
             C_FILL=$(( (CPU_VISUAL * 18) / 100 )); C_EMPTY=$(( 18 - C_FILL ))
             CPU_BAR=""; for ((i=0; i<C_FILL; i++)); do CPU_BAR="${CPU_BAR}#"; done; for ((i=0; i<C_EMPTY; i++)); do CPU_BAR="${CPU_BAR}."; done
 
             STATS_TEXT_1="${WHITE}RAM:${NORM} [${CYAN}${RAM_BAR}${NORM}] ${WHITE}${RAM_MB}MB${NORM}"
-            STATS_TEXT_2="${WHITE}CPU:${NORM} [${GREEN}${CPU_BAR}${NORM}] ${WHITE}${CPU_RAW}%${NORM}"
+            STATS_TEXT_2="${WHITE}CPU:${NORM} [${GREEN}${CPU_BAR}${NORM}] ${WHITE}${CPU_DISPLAY}%${NORM}"
             PID_TEXT="${GRAY}(PID: $JAVA_PID)${NORM}"
         else
             STATUS="${YELLOW}${BOLD}STARTING${NORM}"; STATS_TEXT_1="${YELLOW}Waiting for Java...${NORM}"; STATS_TEXT_2=""; PID_TEXT=""
