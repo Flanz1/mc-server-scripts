@@ -325,52 +325,57 @@ echo "✅ Created forcekill.sh"
 create_uninstall_script() {
     cat << 'EOF' > uninstall.sh
 #!/bin/bash
-# Capture the directory BEFORE we leave it
 TARGET_DIR="$(pwd)"
 REGISTRY="$HOME/.mc_registry"
 
+# 1. Confirmation
 echo "⚠️  WARNING: This will PERMANENTLY DELETE:"
 echo "   $TARGET_DIR"
 echo "------------------------------------------"
 read -p "Type 'delete' to confirm: " CONFIRM
+if [ "$CONFIRM" != "delete" ]; then echo "❌ Cancelled."; exit 1; fi
 
-if [ "$CONFIRM" != "delete" ]; then
-    echo "❌ Cancelled."
-    exit 1
+echo "🗑️  Cleaning up..."
+
+# 2. Surgical Process Kill (Only kills Java running in THIS folder)
+# We look for a Java process whose arguments include this directory path
+JAVA_PID=$(pgrep -f "java.*$TARGET_DIR")
+if [ -n "$JAVA_PID" ]; then
+    echo "   - Killing server process (PID: $JAVA_PID)..."
+    kill -9 "$JAVA_PID" >/dev/null 2>&1
 fi
 
-# 1. Stop Server (Automated)
-# We pipe "kill" into the script to bypass the confirmation prompt
-if [ -f "./forcekill.sh" ]; then
-    echo "kill" | ./forcekill.sh >/dev/null 2>&1
-    echo "✅ Server process terminated."
+# 3. Screen Session Cleanup
+# Detect the screen name just like the dashboard does
+DETECTED_SCREEN=$(screen -ls | grep -E "minecraft|mcserver|Forge|Paper" | awk '{print $1}' | cut -d. -f2 | head -n 1)
+if [ -n "$DETECTED_SCREEN" ]; then
+    screen -X -S "$DETECTED_SCREEN" quit >/dev/null 2>&1
+    echo "   - Closed Screen session."
 fi
 
-# 2. Remove Cron Jobs (Auto-Start/Backup)
+# 4. Remove from Cron (Auto-start/Auto-restart)
 (crontab -l 2>/dev/null | grep -vF "$TARGET_DIR") | crontab -
+echo "   - Removed automation schedules."
 
-# 3. Remove from Global Registry (Using AWK for safety)
+# 5. Remove from Registry
 if [ -f "$REGISTRY" ]; then
-    # We use awk to filter out lines where the 2nd column (Path) matches our TARGET_DIR
     awk -F '|' -v target="$TARGET_DIR" '$2 != target' "$REGISTRY" > "${REGISTRY}.tmp" && mv "${REGISTRY}.tmp" "$REGISTRY"
-    echo "✅ Removed from Global Registry."
+    echo "   - Removed from Global Registry."
 fi
 
-# 4. Delete the Directory
-if [ "$(pwd)" == "/" ]; then
-    echo "❌ Safety Stop: Cannot delete root!"
-    exit 1
+# 6. Delete Files
+if [ "$TARGET_DIR" == "/" ] || [ -z "$TARGET_DIR" ]; then
+    echo "❌ Safety Stop: Root directory detected. Aborting delete."; exit 1
 fi
 
-if [ -d "$TARGET_DIR" ]; then
-    rm -rf "$TARGET_DIR"
-    echo "✅ Uninstall Complete. Server files deleted."
-else
-    echo "❌ Error: Could not find directory to delete."
-fi
+echo "   - Deleting files..."
+cd ..
+rm -rf "$TARGET_DIR"
+
+echo "✅ Uninstall Complete."
 EOF
     chmod +x uninstall.sh
-    echo "✅ Created uninstall.sh (Safe Mode + Registry Fix)"
+    echo "✅ uninstall.sh created."
 }
 
 # Modpack Installer
@@ -525,8 +530,9 @@ EOF
 
 # 3. Dashboard Installer
 install_dashboard() {
-cat << EOF > dashboard.sh
-
+    # We use double quotes here so $UPDATE_URL is expanded NOW,
+    # but we escape \$ variables so they are written literally to the file.
+    cat << EOF > dashboard.sh
 #!/bin/bash
 SERVER_DIR="\$( cd "\$( dirname "\${BASH_SOURCE[0]}" )" && pwd )"
 UPDATE_URL="$UPDATE_URL"
@@ -679,21 +685,18 @@ get_server_stats() {
             STATS=\$(ps -p \$JAVA_PID -o %cpu=,rss=)
             CPU_RAW=\$(echo "\$STATS" | awk '{print \$1}')
             RAM_KB=\$(echo "\$STATS" | awk '{print \$2}')
-
             RAM_MB=\$((RAM_KB / 1024))
             MAX_RAM_VISUAL=12288
             RAM_PERCENT=\$(( (RAM_MB * 100) / MAX_RAM_VISUAL ))
             [[ \$RAM_PERCENT -gt 100 ]] && RAM_PERCENT=100
             R_FILL=\$(( (RAM_PERCENT * 18) / 100 )); R_EMPTY=\$(( 18 - R_FILL ))
             RAM_BAR=""; for ((i=0; i<R_FILL; i++)); do RAM_BAR="\${RAM_BAR}#"; done; for ((i=0; i<R_EMPTY; i++)); do RAM_BAR="\${RAM_BAR}."; done
-
             CORES=\$(nproc)
             CPU_INT=\${CPU_RAW%.*}
             if [ "\$CORES" -gt 1 ]; then CPU_NORMALIZED=\$(( CPU_INT / CORES )); else CPU_NORMALIZED=\$CPU_INT; fi
             C_FILL=\$(( (CPU_NORMALIZED * 18) / 100 )); C_EMPTY=\$(( 18 - C_FILL ))
             [[ \$C_FILL -gt 18 ]] && C_FILL=18; [[ \$C_FILL -lt 0 ]] && C_FILL=0; [[ \$C_EMPTY -lt 0 ]] && C_EMPTY=0
             CPU_BAR=""; for ((i=0; i<C_FILL; i++)); do CPU_BAR="\${CPU_BAR}#"; done; for ((i=0; i<C_EMPTY; i++)); do CPU_BAR="\${CPU_BAR}."; done
-
             STATS_TEXT_1="\${WHITE}RAM:\${NORM} [\${CYAN}\${RAM_BAR}\${NORM}] \${WHITE}\${RAM_MB}MB\${NORM}"
             STATS_TEXT_2="\${WHITE}CPU:\${NORM} [\${GREEN}\${CPU_BAR}\${NORM}] \${WHITE}\${CPU_NORMALIZED}%\${NORM}"
             PID_TEXT="\${GRAY}(PID: \$JAVA_PID)\${NORM}"
@@ -745,27 +748,23 @@ clear
 while true; do
     draw_ui
     read -t 1 -n 1 -s key
-
-    # 🛡️ INPUT SANITIZER
-    # If key is ESC (start of arrow key sequence), drain buffer immediately
-    if [[ "\$key" == \$'\e' ]]; then
-        read -t 0.001 -n 3 -s trash
-        key=""
-    fi
+    # INPUT SANITIZER
+    if [[ "\$key" == \$'\e' ]]; then read -t 0.001 -n 3 -s trash; key=""; fi
 
     if [ -n "\$key" ]; then
         case \$key in
             1) clear; echo -e "\n\${GREEN}--> Starting...\${NORM}"; if [ -f "./start.sh" ]; then ./start.sh; elif [ -f "./run.sh" ]; then ./run.sh; fi; read -p "Press Enter..."; clear ;;
             2) clear; echo -e "\n\${RED}--> Stopping...\${NORM}"; ./stop.sh; read -p "Press Enter..."; clear ;;
             3) tput cnorm; stty echo; clear; echo -e "\${CYAN}--> Console... (Ctrl+A, D to exit)\${NORM}"; sleep 1; screen -r "\$SCREEN_NAME"; tput civis; stty -echo; clear ;;
-            4) clear; echo -e "\n\${YELLOW}--> Backup...\${NORM}"; [ -f "./backup.sh" ] && ./backup.sh; read -p "Done."; clear ;;
-            5) clear; echo -e "\n\${RED}--> Uninstalling...\${NORM}"; [ -f "./uninstall.sh" ] && ./uninstall.sh; read -p "Press Enter..."; clear ;;
+            # FIX: Added stty echo/tput cnorm to all interactive options below
+            4) tput cnorm; stty echo; clear; echo -e "\n\${YELLOW}--> Backup...\${NORM}"; [ -f "./backup.sh" ] && ./backup.sh; read -p "Done."; tput civis; stty -echo; clear ;;
+            5) tput cnorm; stty echo; clear; echo -e "\n\${RED}--> Uninstalling...\${NORM}"; [ -f "./uninstall.sh" ] && ./uninstall.sh; read -p "Press Enter..."; tput civis; stty -echo; clear ;;
             6) tput cnorm; stty echo; clear; [ -f "./install_modpack.sh" ] && ./install_modpack.sh; read -p "Done."; tput civis; stty -echo; clear ;;
             7) clear; echo -e "\n\${CYAN}--> Playit.gg\${NORM}"; sudo systemctl status playit --no-pager; read -p "Done."; clear ;;
             8) clear; echo -e "\n\${MAGENTA}--> Toggling On-Boot Start...\${NORM}"; toggle_autostart; read -p "Done."; clear ;;
-            9) stty echo; clear; echo -e "\n\${MAGENTA}--> Configuring Daily Restart...\${NORM}"; toggle_autorestart; read -p "Press Enter..."; stty -echo; clear ;;
-            0) stty echo; change_ram; stty -echo; clear ;;
-            u|U) stty echo; perform_update ;;
+            9) tput cnorm; stty echo; clear; echo -e "\n\${MAGENTA}--> Configuring Daily Restart...\${NORM}"; toggle_autorestart; read -p "Press Enter..."; tput civis; stty -echo; clear ;;
+            0) tput cnorm; stty echo; change_ram; tput civis; stty -echo; clear ;;
+            u|U) tput cnorm; stty echo; perform_update ;;
             q|Q) exit 0 ;;
         esac
     fi
