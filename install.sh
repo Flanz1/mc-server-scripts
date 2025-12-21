@@ -848,13 +848,13 @@ install_minecraft_server() {
 if [ "$1" == "--refresh" ]; then
     echo "🔄 Update Mode: Detecting configuration..."
 
-    # 1. Detect RAM from existing files
+    # 1. Detect RAM from existing files (Updated for compatibility)
     if [ -f "user_jvm_args.txt" ]; then
-        # NeoForge style
-        RAM=$(grep -oP '-Xmx\K[0-9]+[GM]' user_jvm_args.txt | head -1)
+        # NeoForge: Find -Xmx4G, then strip '-Xmx'
+        RAM=$(grep -o '-Xmx[0-9]\+[GM]' user_jvm_args.txt | head -1 | sed 's/-Xmx//')
     elif [ -f "start.sh" ]; then
-        # Paper style
-        RAM=$(grep -oP '-Xms\K[0-9]+[GM]' start.sh | head -1)
+        # Paper: Find -Xms4G, then strip '-Xms'
+        RAM=$(grep -o '-Xms[0-9]\+[GM]' start.sh | head -1 | sed 's/-Xms//')
     fi
 
     if [ -z "$RAM" ]; then
