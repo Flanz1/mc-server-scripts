@@ -303,23 +303,37 @@ EOF
 }
 
 create_forcekill_script() {
-    cat << EOF > forcekill.sh
-    #!/bin/bash
-    SCREEN_NAME="$SCREEN_NAME"
-    JAR_FILE="$JAR_FILE"
+    cat << 'EOF' > forcekill.sh
+#!/bin/bash
+SERVER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-    echo "☠️  EMERGENCY FORCE KILL INITIATED"
-    read -p "Type 'kill' to confirm: " CONFIRM
-    if [ "\$CONFIRM" != "kill" ]; then
-        echo "❌ Aborted."
-        exit 1
-    fi
-    screen -S \$SCREEN_NAME -X quit 2>/dev/null
-    pkill -9 -f "\$JAR_FILE"
-    echo "✅ Server terminated."
+echo "🔪 Surgical Force Kill..."
+
+# 1. Find Java running ONLY in this directory
+# We search for the folder path in the java command arguments
+JAVA_PID=$(pgrep -f "java.*$SERVER_DIR")
+
+if [ -n "$JAVA_PID" ]; then
+    echo "   - Killing Server Process (PID: $JAVA_PID)"
+    kill -9 "$JAVA_PID" >/dev/null 2>&1
+else
+    echo "   - No specific server process found."
+fi
+
+# 2. Cleanup Screen Session
+DETECTED_SCREEN=$(screen -ls | grep -E "minecraft|mcserver|Forge|Paper" | awk '{print $1}' | cut -d. -f2 | head -n 1)
+if [ -z "$DETECTED_SCREEN" ]; then DETECTED_SCREEN=$(screen -ls | grep -P '^\t\d+\.' | awk '{print $1}' | cut -d. -f2 | head -n 1); fi
+SCREEN_NAME="${DETECTED_SCREEN:-minecraft}"
+
+if screen -list | grep -q "$SCREEN_NAME"; then
+    echo "   - Wiping Screen Session: $SCREEN_NAME"
+    screen -X -S "$SCREEN_NAME" quit >/dev/null 2>&1
+fi
+
+echo "✅ Done."
 EOF
-chmod +x forcekill.sh
-echo "✅ Created forcekill.sh"
+    chmod +x forcekill.sh
+    echo "✅ forcekill.sh created (Surgical Mode)."
 }
 
 create_uninstall_script() {
