@@ -721,7 +721,7 @@ draw_ui() {
     print_line 2  "\${BLUE}============================================================\${NORM}"
     print_line 3  " Path:      \${GRAY}\${SERVER_DIR}\${NORM}"
     print_line 4  " Session:   \${CYAN}\${SCREEN_NAME}\${NORM} \$PID_TEXT"
-    print_line 5  " Status:    \$STATUS        ⏰ On Boot: \$AUTOSTART_MSG"
+    print_line 5  " Status:    \$STATUS       ⏰ On Boot: \$AUTOSTART_MSG"
     print_line 6  "                           🔄 Daily:   \$AUTORESTART_MSG"
     print_line 7  ""
     print_line 8  " \$STATS_TEXT_1"
