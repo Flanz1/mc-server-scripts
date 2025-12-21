@@ -522,9 +522,8 @@ EOF
 
 # 3. Dashboard Installer
 install_dashboard() {
-    # We use double quotes here so $UPDATE_URL is expanded NOW,
-    # but we escape \$ variables so they are written literally to the file.
-    cat << EOF > dashboard.sh
+
+cat << EOF > dashboard.sh
 #!/bin/bash
 SERVER_DIR="\$( cd "\$( dirname "\${BASH_SOURCE[0]}" )" && pwd )"
 UPDATE_URL="$UPDATE_URL"
@@ -651,7 +650,8 @@ perform_update() {
     echo "-----------------------------------"
     echo "Downloading latest installer from Git..."
 
-    if curl -L -s -o install.sh "\$UPDATE_URL"; then
+    # -f flag added here to prevent downloading 404 HTML pages
+    if curl -L -s -f -o install.sh "\$UPDATE_URL"; then
         chmod +x install.sh
         echo "Running update..."
         ./install.sh --refresh
@@ -661,7 +661,9 @@ perform_update() {
         sleep 2
         exec ./dashboard.sh
     else
-        echo "❌ Download failed. Check internet or URL."
+        echo "❌ Update Failed!"
+        echo "   Could not download the file. Check your UPDATE_URL."
+        echo "   Target: \$UPDATE_URL"
         read -p "Press Enter..."
     fi
 }
@@ -733,7 +735,14 @@ draw_ui() {
     tput cup \$TERM_LINES \$TERM_COLS
 }
 
-tput civis; trap "tput cnorm; clear; exit" EXIT; clear
+# --- MAIN LOOP WITH ALTERNATE SCREEN ---
+# tput smcup = Save Screen (Enter Alt Mode - No Scrollbar)
+# tput rmcup = Restore Screen (Exit Alt Mode - Back to History)
+tput smcup
+tput civis
+trap "tput rmcup; tput cnorm; exit" EXIT
+clear
+
 while true; do
     draw_ui
     read -t 1 -n 1 -s key
