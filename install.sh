@@ -262,47 +262,35 @@ EOF
 create_start_script() {
     cat << 'EOF' > start.sh
 #!/bin/bash
-SERVER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd "$SERVER_DIR"
 
-# 1. CLEANUP GHOST SCREENS
-# This removes "Dead" sockets that confuse the system
-screen -wipe >/dev/null 2>&1
+# Settings
+# Adjust RAM as needed for your specific machine
+JAVA_ARGS="-Xms4G -Xmx4G"
+JAR_FILE="server.jar"
 
-# 2. DETECT SETTINGS
-DETECTED_SCREEN=$(screen -ls | grep -E "minecraft|mcserver|Forge|Paper" | awk '{print $1}' | cut -d. -f2 | head -n 1)
-SCREEN_NAME="${DETECTED_SCREEN:-minecraft}"
+echo "✨ Preparing to launch Minecraft..."
 
-# 3. CHECK IF RUNNING
-if screen -list | grep -q "$SCREEN_NAME"; then
-    echo "⚠️  Server is already running in screen: $SCREEN_NAME"
-    exit 1
-fi
+# The infinite loop
+while true
+do
+    echo "🚀 Starting Server..."
 
-echo "🚀 Starting Server ($SCREEN_NAME)..."
+    # Run the server
+    # 'nogui' saves resources by not opening the extra Java window
+    java $JAVA_ARGS -jar $JAR_FILE nogui
 
-# 4. DETERMINE START COMMAND
-# If run.sh exists (NeoForge/Modpacks), use it. Otherwise use Java.
-if [ -f "run.sh" ]; then
-    chmod +x run.sh
-    START_CMD="./run.sh"
-else
-    # Default RAM if not detected
-    RAM="4G"
-    if [ -f "user_jvm_args.txt" ]; then
-        RAM=$(grep -o '-Xmx[0-9]\+[GM]' user_jvm_args.txt | head -1 | sed 's/-Xmx//')
-    fi
-    START_CMD="java -Xms$RAM -Xmx$RAM -jar server.jar nogui"
-fi
+    # This part runs ONLY after the server stops/crashes
+    echo "🛑 Server has stopped."
+    echo "⏳ Restarting in 5 seconds... (Press Ctrl+C to stop the loop)"
 
-# 5. LAUNCH SCREEN
-# We launch the screen here. The script finishes, but screen stays in background.
-/usr/bin/screen -dmS "$SCREEN_NAME" /bin/bash -c "$START_CMD; exec bash"
-
-echo "✅ Server started in background."
+    # The 5-second buffer is CRITICAL.
+    # It prevents a "rapid fire" restart loop if the server is failing instantly,
+    # and gives you a chance to kill the script manually if you are watching the console.
+    sleep 5
+done
 EOF
     chmod +x start.sh
-    echo "✅ start.sh created (Smart Mode)."
+    echo "✅ start.sh created."
 }
 
 create_restart_script() {
