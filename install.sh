@@ -828,7 +828,7 @@ install_minecraft_server
 
 echo ""
 echo "🎉 Installation Complete!"
-echo "👉 Use mcserver $SERVER_NAME to launch the server dashboard."
+echo "👉 Use mcserver $(basename "$(pwd)") to launch the server dashboard."
 
 # ==========================================
 # Self-Cleanup
