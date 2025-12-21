@@ -651,7 +651,7 @@ while true; do
             5) tput cnorm; clear; [ -f "./install_modpack.sh" ] && ./install_modpack.sh; read -p "Done."; tput civis; clear ;;
             6) clear; echo -e "\n${CYAN}--> Playit.gg${NORM}"; sudo systemctl status playit --no-pager; read -p "Done."; clear ;;
             7) clear; echo -e "\n${MAGENTA}--> Toggling Auto-Start...${NORM}"; toggle_autostart; read -p "Done."; clear ;;
-            8) clear; echo -e "\n${MAGENTA}--> Running uninstall script...${NORM}"; ./uninstall; read -p "Done."; exit 0 ;;
+            8) clear; echo -e "\n${MAGENTA}--> Running uninstall script...${NORM}"; ./uninstall.sh; read -p "Done."; exit 0 ;;
             q|Q) exit 0 ;;
         esac
     fi
