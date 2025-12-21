@@ -327,7 +327,6 @@ create_uninstall_script() {
 #!/bin/bash
 # Capture the directory BEFORE we leave it
 TARGET_DIR="$(pwd)"
-SERVER_NAME=$(basename "$TARGET_DIR")
 REGISTRY="$HOME/.mc_registry"
 
 echo "⚠️  WARNING: This will PERMANENTLY DELETE:"
@@ -340,16 +339,20 @@ if [ "$CONFIRM" != "delete" ]; then
     exit 1
 fi
 
-# 1. Stop Server
-./forcekill.sh 2>/dev/null
+# 1. Stop Server (Automated)
+# We pipe "kill" into the script to bypass the confirmation prompt
+if [ -f "./forcekill.sh" ]; then
+    echo "kill" | ./forcekill.sh >/dev/null 2>&1
+    echo "✅ Server process terminated."
+fi
 
 # 2. Remove Cron Jobs (Auto-Start/Backup)
 (crontab -l 2>/dev/null | grep -vF "$TARGET_DIR") | crontab -
 
-# 3. Remove from Global Registry
+# 3. Remove from Global Registry (Using AWK for safety)
 if [ -f "$REGISTRY" ]; then
-    # Create a temp file without the line matching our server path
-    grep -v "|$TARGET_DIR$" "$REGISTRY" > "${REGISTRY}.tmp" && mv "${REGISTRY}.tmp" "$REGISTRY"
+    # We use awk to filter out lines where the 2nd column (Path) matches our TARGET_DIR
+    awk -F '|' -v target="$TARGET_DIR" '$2 != target' "$REGISTRY" > "${REGISTRY}.tmp" && mv "${REGISTRY}.tmp" "$REGISTRY"
     echo "✅ Removed from Global Registry."
 fi
 
@@ -359,9 +362,7 @@ if [ "$(pwd)" == "/" ]; then
     exit 1
 fi
 
-# SAFETY CHECK: Ensure we are deleting the folder we came from
 if [ -d "$TARGET_DIR" ]; then
-    # Move out of the directory so we can delete it
     cd ..
     rm -rf "$TARGET_DIR"
     echo "✅ Uninstall Complete. Server files deleted."
@@ -370,7 +371,7 @@ else
 fi
 EOF
     chmod +x uninstall.sh
-    echo "✅ Created uninstall.sh (SAFE MODE)"
+    echo "✅ Created uninstall.sh (Safe Mode + Registry Fix)"
 }
 
 # Modpack Installer
