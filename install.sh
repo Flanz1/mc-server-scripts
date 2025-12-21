@@ -733,10 +733,11 @@ draw_ui() {
     print_line 14 "   \${CYAN}[3]\${NORM} > Open Console      \${MAGENTA}[8]\${NORM} ⏰ Toggle On-Boot"
     print_line 15 "   \${YELLOW}[4]\${NORM} 💾 Force Backup     \${MAGENTA}[9]\${NORM} 🔄 Schedule Restart"
     print_line 16 "   \${RED}[5]\${NORM} ❌ Uninstall        \${CYAN}[0]\${NORM} 🧠 Change RAM"
-    print_line 17 "   \${BLUE}[U]\${NORM} 🔄 Update Tools"
-    print_line 18 "\${BLUE}============================================================\${NORM}"
-    print_line 19 "   \${RED}[Q]\${NORM} Quit"
-    print_line 20 " \${WHITE}Live Monitoring...\${NORM}                                  "
+    print_line 17 "   \${RED}[K]\${NORM} ❌ Forcekill"
+    print_line 18 "   \${BLUE}[U]\${NORM} 🔄 Update Tools"
+    print_line 19 "\${BLUE}============================================================\${NORM}"
+    print_line 20 "   \${RED}[Q]\${NORM} Quit"
+    print_line 21 " \${WHITE}Live Monitoring...\${NORM}                                  "
     tput cup \$TERM_LINES \$TERM_COLS
 }
 
@@ -764,6 +765,7 @@ while true; do
             8) clear; echo -e "\n\${MAGENTA}--> Toggling On-Boot Start...\${NORM}"; toggle_autostart; read -p "Done."; clear ;;
             9) tput cnorm; stty echo; clear; echo -e "\n\${MAGENTA}--> Configuring Daily Restart...\${NORM}"; toggle_autorestart; read -p "Press Enter..."; tput civis; stty -echo; clear ;;
             0) tput cnorm; stty echo; change_ram; tput civis; stty -echo; clear ;;
+            k|K) tput cnor; stty echo; ./forcekill.sh; read -p "Done."; clear;;
             u|U) tput cnorm; stty echo; perform_update ;;
             q|Q) exit 0 ;;
         esac
