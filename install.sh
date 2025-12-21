@@ -144,14 +144,22 @@ install_playit() {
     chmod +x playit
     sudo mv playit /usr/local/bin/playit
 
-    echo -e "--> Creating System Service..."
-    cat << 'EOF' | sudo tee /etc/systemd/system/playit.service > /dev/null
+    # Detect the current user and home directory
+    CURRENT_USER=$(whoami)
+    USER_HOME=$HOME
+
+    echo -e "--> Creating System Service (Running as: $CURRENT_USER)..."
+
+    # NOTE: 'EOF' is NOT quoted here, so variables $CURRENT_USER and $USER_HOME will be filled in.
+    cat << EOF | sudo tee /etc/systemd/system/playit.service > /dev/null
 [Unit]
 Description=Playit.gg Tunnel
 After=network.target
 
 [Service]
 Type=simple
+User=$CURRENT_USER
+WorkingDirectory=$USER_HOME
 ExecStart=/usr/local/bin/playit
 Restart=always
 RestartSec=5
@@ -161,7 +169,7 @@ WantedBy=multi-user.target
 EOF
     sudo systemctl daemon-reload
     sudo systemctl enable playit
-    echo "✅ Playit.gg installed!"
+    echo "✅ Playit.gg installed and configured for user: $CURRENT_USER!"
 }
 
 neoforge_update() {
