@@ -767,7 +767,7 @@ while true; do
             0) tput cnorm; stty echo; change_ram; tput civis; stty -echo; clear ;;
             k|K) tput cnor; stty echo; ./forcekill.sh; read -p "Done."; clear;;
             u|U) tput cnorm; stty echo; perform_update ;;
-            q|Q) exit 0 ;;
+            q|Q) clear; exit 0 ;;
         esac
     fi
 done
