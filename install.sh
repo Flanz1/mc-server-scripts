@@ -670,8 +670,11 @@ draw_ui() {
     print_line 15 "   ${YELLOW}[4]${NORM} 💾 Force Backup     ${MAGENTA}[9]${NORM} 🔄 Schedule Restart"
     print_line 16 "   ${RED}[5]${NORM} ❌ Uninstall"
     print_line 17 "${BLUE}============================================================${NORM}"
-    print_line 18 "   ${RED}[Q]${NORM} Quit"
-    print_line 19 " ${WHITE}Live Monitoring...${NORM}                                  "
+    print_line 18 "   Reminder after entering the console [3] use Ctrl+A and then Ctrl+D"
+    print_line 19 "   to exit the console"
+    print_line 20 "${BLUE}============================================================{NORM}"
+    print_line 21 "   ${RED}[Q]${NORM} Quit"
+    print_line 22 " ${WHITE}Live Monitoring...${NORM}                                  "
     tput cup $TERM_LINES $TERM_COLS
 }
 
