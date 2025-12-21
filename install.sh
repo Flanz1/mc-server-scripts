@@ -522,11 +522,12 @@ EOF
 
 # 3. Dashboard Installer
 install_dashboard() {
+    # We use double quotes here so $UPDATE_URL is expanded NOW,
+    # but we escape \$ variables so they are written literally to the file.
     cat << EOF > dashboard.sh
 #!/bin/bash
-# --- CONFIGURATION ---
 SERVER_DIR="\$( cd "\$( dirname "\${BASH_SOURCE[0]}" )" && pwd )"
-UPDATE_URL="$UPDATE_URL" # Injected from install.sh
+UPDATE_URL="$UPDATE_URL"
 
 # --- STYLING ---
 BOLD=\$(tput bold); NORM=\$(tput sgr0)
@@ -549,9 +550,99 @@ find_java_pid() {
     done
 }
 
-# ... (Insert check_autostart, toggle_autostart, check_autorestart, toggle_autorestart, change_ram here) ...
-# (Use the code from the previous message for those functions, omitted here for brevity)
-# IMPORTANT: Just make sure you paste the FULL content here.
+check_autostart() {
+    if crontab -l 2>/dev/null | grep -F "\$SERVER_DIR" | grep -q "@reboot"; then
+        AUTOSTART_MSG="\${GREEN}\${BOLD}ON\${NORM}"; AUTOSTART_STATE="on"
+    else
+        AUTOSTART_MSG="\${RED}\${BOLD}OFF\${NORM}"; AUTOSTART_STATE="off"
+    fi
+}
+
+toggle_autostart() {
+    if [ -f "\$SERVER_DIR/run.sh" ]; then START_SCRIPT="run.sh"; else START_SCRIPT="start.sh"; fi
+    CRON_CMD="@reboot /usr/bin/screen -dmS \$SCREEN_NAME /bin/bash \$SERVER_DIR/\$START_SCRIPT"
+
+    if [ "\$AUTOSTART_STATE" == "on" ]; then
+        (crontab -l 2>/dev/null | grep -vF "\$SERVER_DIR/\$START_SCRIPT") | crontab -
+        echo "✅ Auto-start disabled."
+    else
+        (crontab -l 2>/dev/null; echo "\$CRON_CMD") | crontab -
+        echo "✅ Auto-start enabled."
+    fi
+}
+
+check_autorestart() {
+    EXISTING_CRON=\$(crontab -l 2>/dev/null | grep -F "\$SERVER_DIR/restart.sh")
+    if [ -n "\$EXISTING_CRON" ]; then
+        MIN=\$(echo "\$EXISTING_CRON" | awk '{print \$1}')
+        HOUR=\$(echo "\$EXISTING_CRON" | awk '{print \$2}')
+        printf -v PRETTY_TIME "%02d:%02d" "\$HOUR" "\$MIN"
+        AUTORESTART_MSG="\${GREEN}\${BOLD}ON (\$PRETTY_TIME)\${NORM}"; AUTORESTART_STATE="on"
+    else
+        AUTORESTART_MSG="\${RED}\${BOLD}OFF\${NORM}"; AUTORESTART_STATE="off"
+    fi
+}
+
+toggle_autorestart() {
+    if [ "\$AUTORESTART_STATE" == "on" ]; then
+        (crontab -l 2>/dev/null | grep -vF "\$SERVER_DIR/restart.sh") | crontab -
+        echo "✅ Daily restart disabled."
+    else
+        echo "-----------------------------------"
+        echo "⏰ Configure Daily Auto-Restart"
+        echo "-----------------------------------"
+        read -p "Enter Hour (0-23): " IN_HOUR
+        read -p "Enter Minute (0-59): " IN_MIN
+
+        if ! [[ "\$IN_HOUR" =~ ^[0-9]+$ ]] || [ "\$IN_HOUR" -lt 0 ] || [ "\$IN_HOUR" -gt 23 ]; then echo "❌ Invalid Hour."; return; fi
+        if ! [[ "\$IN_MIN" =~ ^[0-9]+$ ]] || [ "\$IN_MIN" -lt 0 ] || [ "\$IN_MIN" -gt 59 ]; then echo "❌ Invalid Minute."; return; fi
+
+        CRON_CMD="\$IN_MIN \$IN_HOUR * * * /bin/bash \$SERVER_DIR/restart.sh >/dev/null 2>&1"
+        (crontab -l 2>/dev/null; echo "\$CRON_CMD") | crontab -
+        printf "✅ Restart scheduled for %02d:%02d daily.\n" "\$IN_HOUR" "\$IN_MIN"
+    fi
+}
+
+change_ram() {
+    clear
+    echo "-----------------------------------"
+    echo "🧠 Change RAM Allocation"
+    echo "-----------------------------------"
+    TOTAL_MEM_GB=\$(free -g | awk '/^Mem:/{print \$2}')
+    echo "💻 System Memory: \${TOTAL_MEM_GB}GB"
+    echo ""
+    read -p "Enter new RAM amount (in GB): " NEW_RAM
+    if ! [[ "\$NEW_RAM" =~ ^[0-9]+$ ]]; then echo "❌ Invalid number."; read -p "Press Enter..."; return; fi
+
+    if [ "\$NEW_RAM" -gt "\$TOTAL_MEM_GB" ]; then
+        echo ""; echo "❌ Error: You only have \${TOTAL_MEM_GB}GB of RAM!"; echo "   You cannot allocate \${NEW_RAM}GB."; read -p "Press Enter..."; return
+    fi
+
+    SAFE_LIMIT=\$(( TOTAL_MEM_GB - 1 ))
+    if [ "\$NEW_RAM" -gt "\$SAFE_LIMIT" ]; then
+        echo ""; echo "⚠️  CRITICAL WARNING: You are leaving less than 1GB for the OS!"; echo "   This will likely crash your server."; read -p "Type 'force' to do it anyway: " CONFIRM
+        if [ "\$CONFIRM" != "force" ]; then echo "Cancelled."; read -p "Press Enter..."; return; fi
+    fi
+
+    if [ "\$NEW_RAM" -gt 12 ]; then
+        echo ""; echo "⚠️  Performance Warning: Allocating >12GB can cause Lag Spikes."; read -p "Press Enter to continue..."
+    fi
+
+    echo ""; echo "--> Applying \${NEW_RAM}GB allocation..."
+    if [ -f "user_jvm_args.txt" ]; then
+        grep -v "-Xms" user_jvm_args.txt | grep -v "-Xmx" > user_jvm_args.tmp
+        echo "-Xms\${NEW_RAM}G" >> user_jvm_args.tmp
+        echo "-Xmx\${NEW_RAM}G" >> user_jvm_args.tmp
+        mv user_jvm_args.tmp user_jvm_args.txt
+        echo "✅ Updated user_jvm_args.txt"
+    fi
+    if [ -f "start.sh" ]; then
+        sed -i "s/-Xms[0-9]*[MG]/-Xms\${NEW_RAM}G/g" start.sh
+        sed -i "s/-Xmx[0-9]*[MG]/-Xmx\${NEW_RAM}G/g" start.sh
+        echo "✅ Updated start.sh"
+    fi
+    echo ""; echo "🎉 Success! Restart the server to apply changes."; read -p "Press Enter..."
+}
 
 perform_update() {
     clear
@@ -575,7 +666,40 @@ perform_update() {
     fi
 }
 
-# ... (Insert get_server_stats here) ...
+get_server_stats() {
+    detect_screen; check_autostart; check_autorestart
+    if screen -list | grep -q "\$SCREEN_NAME"; then
+        STATUS="\${GREEN}\${BOLD}ONLINE\${NORM}"
+        find_java_pid
+        if [ -n "\$JAVA_PID" ]; then
+            STATS=\$(ps -p \$JAVA_PID -o %cpu=,rss=)
+            CPU_RAW=\$(echo "\$STATS" | awk '{print \$1}')
+            RAM_KB=\$(echo "\$STATS" | awk '{print \$2}')
+
+            RAM_MB=\$((RAM_KB / 1024))
+            MAX_RAM_VISUAL=12288
+            RAM_PERCENT=\$(( (RAM_MB * 100) / MAX_RAM_VISUAL ))
+            [[ \$RAM_PERCENT -gt 100 ]] && RAM_PERCENT=100
+            R_FILL=\$(( (RAM_PERCENT * 18) / 100 )); R_EMPTY=\$(( 18 - R_FILL ))
+            RAM_BAR=""; for ((i=0; i<R_FILL; i++)); do RAM_BAR="\${RAM_BAR}#"; done; for ((i=0; i<R_EMPTY; i++)); do RAM_BAR="\${RAM_BAR}."; done
+
+            CORES=\$(nproc)
+            CPU_INT=\${CPU_RAW%.*}
+            if [ "\$CORES" -gt 1 ]; then CPU_NORMALIZED=\$(( CPU_INT / CORES )); else CPU_NORMALIZED=\$CPU_INT; fi
+            C_FILL=\$(( (CPU_NORMALIZED * 18) / 100 )); C_EMPTY=\$(( 18 - C_FILL ))
+            [[ \$C_FILL -gt 18 ]] && C_FILL=18; [[ \$C_FILL -lt 0 ]] && C_FILL=0; [[ \$C_EMPTY -lt 0 ]] && C_EMPTY=0
+            CPU_BAR=""; for ((i=0; i<C_FILL; i++)); do CPU_BAR="\${CPU_BAR}#"; done; for ((i=0; i<C_EMPTY; i++)); do CPU_BAR="\${CPU_BAR}."; done
+
+            STATS_TEXT_1="\${WHITE}RAM:\${NORM} [\${CYAN}\${RAM_BAR}\${NORM}] \${WHITE}\${RAM_MB}MB\${NORM}"
+            STATS_TEXT_2="\${WHITE}CPU:\${NORM} [\${GREEN}\${CPU_BAR}\${NORM}] \${WHITE}\${CPU_NORMALIZED}%\${NORM}"
+            PID_TEXT="\${GRAY}(PID: \$JAVA_PID)\${NORM}"
+        else
+            STATUS="\${YELLOW}\${BOLD}STARTING\${NORM}"; STATS_TEXT_1="\${YELLOW}Waiting for Java...\${NORM}"; STATS_TEXT_2=""; PID_TEXT=""
+        fi
+    else
+        STATUS="\${RED}\${BOLD}OFFLINE\${NORM}"; STATS_TEXT_1="\${GRAY}Server is stopped.\${NORM}"; STATS_TEXT_2=""; PID_TEXT=""
+    fi
+}
 
 draw_ui() {
     get_server_stats
