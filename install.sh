@@ -776,6 +776,51 @@ EOF
     echo "✅ Dashboard installed."
 }
 
+configure_autostart_service() {
+    echo "⚙️  Configuring Auto-Start Service..."
+
+    # Define variables dynamically based on where the script is running
+    SERVICE_NAME="minecraft-$(basename "$(pwd)")"
+    SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+    CURRENT_USER="$(whoami)"
+    SERVER_DIR="$(pwd)"
+
+    echo "   - Creating service: $SERVICE_NAME"
+
+    # Write the service file
+    cat << EOF | sudo tee "$SERVICE_FILE" > /dev/null
+[Unit]
+Description=Minecraft Server: $(basename "$SERVER_DIR")
+After=network.target
+
+[Service]
+User=$CURRENT_USER
+Group=$CURRENT_USER
+Type=forking
+WorkingDirectory=$SERVER_DIR
+
+# START: Launch Screen Session in detached mode
+ExecStart=/usr/bin/screen -dmS minecraft /bin/bash $SERVER_DIR/start.sh
+
+# STOP: Send safe stop command to console
+ExecStop=/usr/bin/screen -p 0 -S minecraft -X eval 'stuff "stop\015"'
+ExecStop=/bin/sleep 10
+
+# RESTART: Retry if it crashes
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Enable the service
+    echo "   - Enabling service..."
+    sudo systemctl daemon-reload
+    sudo systemctl enable "$SERVICE_NAME" >/dev/null 2>&1
+    echo "✅ Auto-start installed! Server will start on boot."
+}
+
 
 install_minecraft_server() {
     # Check for jq
@@ -836,6 +881,7 @@ install_minecraft_server() {
     create_uninstall_script
     create_backup_system
     install_dashboard
+    configure_autostart_service
     setup_global_command "$(basename "$(pwd)")" "$(pwd)"
 }
 
