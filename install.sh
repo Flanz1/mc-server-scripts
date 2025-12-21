@@ -753,8 +753,8 @@ draw_ui() {
 
     print_line() { tput cup \$((PAD_TOP + \$1)) \$PAD_LEFT; echo -e "\$2"; }
 
-    print_line 0  "\${BLUE}============================================================\${NORM}"
-    print_line 1  "       👾  \${BOLD}MINECRAFT SERVER DASHBOARD\${NORM}  👾"
+    print_line 0  "\${BLUE}==Version 1.0===============================================\${NORM}"
+    print_line 1  "         👾  \${BOLD}MINECRAFT SERVER DASHBOARD\${NORM}  👾"
     print_line 2  "\${BLUE}============================================================\${NORM}"
     print_line 3  " Path:      \${GRAY}\${SERVER_DIR}\${NORM}"
     print_line 4  " Session:   \${CYAN}\${SCREEN_NAME}\${NORM} \$PID_TEXT"
