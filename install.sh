@@ -29,18 +29,15 @@ EOF
 
 }
 
-#  Global Command: 'mcserver'
-# ==========================================
-# 🌍 Global Command: 'mcserver'
-# ==========================================
+# Global Command: 'mcserver'
 setup_global_command() {
     local NAME="$1"
     local SERVER_PATH="$2"
     local REGISTRY="$HOME/.mc_registry"
     local BIN_PATH="/usr/local/bin/mcserver"
+    local COMPLETION_PATH="/etc/bash_completion.d/mcserver"
 
     # --- SAFETY CHECK ---
-    # If variables are empty, stop immediately.
     if [ -z "$NAME" ] || [ -z "$SERVER_PATH" ]; then
         echo "⚠️  Skipping registration: Name or Path is missing."
         return 1
@@ -50,92 +47,81 @@ setup_global_command() {
 
     # 1. Create/Update Registry
     if [ ! -f "$REGISTRY" ]; then touch "$REGISTRY"; fi
-
-    # Remove old entry (if exists) and empty lines to keep it clean
     grep -v "^$NAME|" "$REGISTRY" | sed '/^$/d' > "${REGISTRY}.tmp" && mv "${REGISTRY}.tmp" "$REGISTRY"
-
-    # Append new valid entry
     echo "$NAME|$SERVER_PATH" >> "$REGISTRY"
 
     # 2. Create the Global Script
     cat << 'EOF' | sudo tee "$BIN_PATH" > /dev/null
 #!/bin/bash
 REGISTRY="$HOME/.mc_registry"
+BOLD='\033[1m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; GRAY='\033[0;90m'; NC='\033[0m'; RED='\033[0;31m'
 
-# Colors
-BOLD='\033[1m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; GRAY='\033[0;90m'; NC='\033[0m'
-RED='\033[0;31m'
-
-# --- HELPER: SHOW HELP ---
 show_help() {
     echo -e "${BOLD}Minecraft Server Manager${NC}"
     echo -e "Usage: mcserver [COMMAND] [SERVER_NAME]"
-    echo ""
     echo -e "  ${GREEN}list${NC}              List all registered servers."
     echo -e "  ${GREEN}<name>${NC}            Launch dashboard for <name>."
     echo -e "  ${GREEN}-h, --help${NC}        Show this help."
 }
 
-# --- HELPER: LIST SERVERS ---
 list_servers() {
     echo -e "\n${BOLD}📡 Registered Minecraft Servers:${NC}"
     echo -e "${GRAY}------------------------------------------------------------${NC}"
     printf "${CYAN}%-20s ${NC}| ${NC}%s\n" "SERVER NAME" "LOCATION"
     echo -e "${GRAY}------------------------------------------------------------${NC}"
-
-    if [ ! -s "$REGISTRY" ]; then
-        echo "   (No servers found)"
-        return
-    fi
-
+    if [ ! -s "$REGISTRY" ]; then echo "   (No servers found)"; return; fi
     while IFS='|' read -r name path; do
-        # SKIP INVALID LINES
         if [ -z "$name" ] || [ -z "$path" ]; then continue; fi
         printf "${GREEN}%-20s ${NC}| ${GRAY}%s${NC}\n" "$name" "$path"
     done < "$REGISTRY"
     echo ""
 }
 
-# --- CONTROLLER ---
 if [[ "$1" == "-h" || "$1" == "--help" ]]; then show_help; exit 0; fi
 if [ "$1" == "list" ]; then list_servers; exit 0; fi
 
 TARGET_NAME="$1"
-
-# Interactive Menu
 if [ -z "$TARGET_NAME" ]; then
     list_servers
     echo -e "${BOLD}Select a server:${NC}"
-    # Read registry, filtering empty lines
     mapfile -t SERVERS < <(awk -F'|' '$1!="" {print $1}' "$REGISTRY")
-
     if [ ${#SERVERS[@]} -eq 0 ]; then exit 1; fi
-
     select s in "${SERVERS[@]}"; do
         if [ -n "$s" ]; then TARGET_NAME="$s"; break; else echo "Invalid."; fi
     done
 fi
 
-# Find Path
 TARGET_PATH=$(grep "^$TARGET_NAME|" "$REGISTRY" | cut -d'|' -f2 | head -n 1)
-
-if [ -z "$TARGET_PATH" ]; then
-    echo -e "${RED}Error: Server '$TARGET_NAME' not found.${NC}"
-    exit 1
-fi
-
-if [ ! -d "$TARGET_PATH" ]; then
-    echo -e "${RED}Error: Directory missing: $TARGET_PATH${NC}"
-    # Optional: ask to clean up registry here?
-    exit 1
-fi
+if [ -z "$TARGET_PATH" ]; then echo -e "${RED}Error: Server '$TARGET_NAME' not found.${NC}"; exit 1; fi
+if [ ! -d "$TARGET_PATH" ]; then echo -e "${RED}Error: Directory missing: $TARGET_PATH${NC}"; exit 1; fi
 
 cd "$TARGET_PATH" || exit
 [ -f "./dashboard.sh" ] && ./dashboard.sh || echo "Error: dashboard.sh missing."
 EOF
-
     sudo chmod +x "$BIN_PATH"
-    echo "✅ Server '$NAME' registered successfully."
+
+    # 3. Create Bash Autocomplete Script
+    echo "--> Installing tab-completion..."
+    cat << 'EOF' | sudo tee "$COMPLETION_PATH" > /dev/null
+_mcserver_completion() {
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    # 1. Get list of server names from registry (Column 1)
+    #    Also add standard commands like 'list' and 'help'
+    local servers=$(awk -F '|' '{print $1}' ~/.mc_registry 2>/dev/null)
+    local commands="list help"
+
+    # 2. Generate suggestions based on current word
+    COMPREPLY=( $(compgen -W "${servers} ${commands}" -- ${cur}) )
+    return 0
+}
+complete -F _mcserver_completion mcserver
+EOF
+
+    echo "✅ Server '$NAME' registered successfully (with auto-complete!)."
 }
 
 install_playit() {
