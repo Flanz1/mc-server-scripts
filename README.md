@@ -15,7 +15,7 @@ A robust, all-in-one Bash script to set up, manage, and maintain Minecraft serve
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 1.  **One command to download and install:**
    * ```Bash
@@ -41,7 +41,7 @@ Best for heavy modpacks like *All The Mods 10*.
 
 ---
 
-## 🛠️ Management Commands
+## 3. Management Commands
 
 Once installed, use these scripts inside the folder to manage your server:
 
@@ -53,6 +53,8 @@ Once installed, use these scripts inside the folder to manage your server:
 | `./update.sh` | Updates the server jar/loader (Paper or NeoForge). |
 | `./forcekill.sh` | **Emergency only.** Kills the process immediately (data loss risk). |
 | `./uninstall.sh` | **Danger.** Deletes the entire server folder and removes cron jobs. |
+| `./dashboard.sh` | The nifty TUI Dashboard to manage your server. |
+| `mcserver` | Global mcserver command to manage your intalled Minecraft servers. |
 
 ---
 

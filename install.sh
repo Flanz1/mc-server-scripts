@@ -29,15 +29,10 @@ EOF
 
 }
 
-# ==========================================
-# 🌍 Global Command: 'mcserver'
-# ==========================================
-# ==========================================
-# 🌍 Global Command: 'mcserver'
-# ==========================================
+#  Global Command: 'mcserver'
 setup_global_command() {
     local NAME="$1"
-    local SERVER_PATH="$2"  # <--- RENAMED (Was PATH)
+    local SERVER_PATH="$2"
     local REGISTRY="$HOME/.mc_registry"
     local BIN_PATH="/usr/local/bin/mcserver"
 
@@ -62,11 +57,26 @@ CYAN='\033[0;36m'
 GRAY='\033[0;90m'
 NC='\033[0m'
 
+# --- HELPER: SHOW HELP ---
+show_help() {
+    echo -e "${BOLD}Minecraft Server Manager${NC}"
+    echo -e "Usage: mcserver [COMMAND] [SERVER_NAME]"
+    echo ""
+    echo -e "${BOLD}Commands:${NC}"
+    echo -e "  ${GREEN}list${NC}              List all registered servers."
+    echo -e "  ${GREEN}<name>${NC}            Launch the dashboard for a specific server."
+    echo -e "  ${GREEN}(no args)${NC}         Open interactive selection menu."
+    echo -e "  ${GREEN}-h, --help${NC}        Show this help message."
+    echo ""
+    echo -e "${BOLD}Examples:${NC}"
+    echo -e "  mcserver list"
+    echo -e "  mcserver Survival"
+}
+
 # --- HELPER: LIST SERVERS ---
 list_servers() {
     echo -e "\n${BOLD}📡 Registered Minecraft Servers:${NC}"
     echo -e "${GRAY}------------------------------------------------------------${NC}"
-    # Print Header
     printf "${CYAN}%-20s ${NC}| ${NC}%s\n" "SERVER NAME" "LOCATION"
     echo -e "${GRAY}------------------------------------------------------------${NC}"
 
@@ -75,62 +85,23 @@ list_servers() {
         return
     fi
 
-    # Read file line by line
     while IFS='|' read -r name path; do
-        # formatting: Name (Green, 20 chars wide) | Path (Gray)
         printf "${GREEN}%-20s ${NC}| ${GRAY}%s${NC}\n" "$name" "$path"
     done < "$REGISTRY"
     echo ""
 }
 
-# --- MODE 1: LIST ---
+# --- MODE 1: HELP ---
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    show_help
+    exit 0
+fi
+
+# --- MODE 2: LIST ---
 if [ "$1" == "list" ]; then
     list_servers
     exit 0
 fi
-
-# --- MODE 2: SPECIFIC SERVER ---
-TARGET_NAME="$1"
-
-# Interactive Menu if no arg provided
-if [ -z "$TARGET_NAME" ]; then
-    list_servers
-    echo -e "${BOLD}Select a server to manage:${NC}"
-
-    mapfile -t SERVERS < <(cut -d'|' -f1 "$REGISTRY")
-    if [ ${#SERVERS[@]} -eq 0 ]; then exit 1; fi
-
-    select s in "${SERVERS[@]}"; do
-        if [ -n "$s" ]; then TARGET_NAME="$s"; break; else echo "Invalid."; fi
-    done
-fi
-
-# Find Path
-TARGET_PATH=$(grep "^$TARGET_NAME|" "$REGISTRY" | cut -d'|' -f2 | head -n 1)
-
-if [ -z "$TARGET_PATH" ]; then
-    echo -e "${RED}Error: Server '$TARGET_NAME' not found.${NC}"
-    exit 1
-fi
-
-if [ ! -d "$TARGET_PATH" ]; then
-    echo -e "${RED}Error: Directory missing: $TARGET_PATH${NC}"
-    exit 1
-fi
-
-# Launch
-cd "$TARGET_PATH" || exit
-if [ -f "./dashboard.sh" ]; then
-    ./dashboard.sh
-else
-    echo "Error: dashboard.sh missing."
-fi
-EOF
-
-    sudo chmod +x "$BIN_PATH"
-    echo "✅ Server '$NAME' registered successfully."
-}
-
 install_dashboard(){
     cat << 'EOF' > dashboard.sh
     #!/bin/bash
