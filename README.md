@@ -2,7 +2,7 @@
 
 A robust, all-in-one Bash script to set up, manage, and maintain Minecraft servers on **Debian/Ubuntu** systems. Designed for performance and ease of use.
 
-## ✨ Features
+## Features
 
 * **Multi-Platform Support:**
     * **PaperMC:** Automatically fetches the absolute latest build from the API.
@@ -41,9 +41,9 @@ Best for heavy modpacks like *All The Mods 10*.
 
 ---
 
-## 3. Management Commands
+## 3. Management Scripts
 
-Once installed, use these scripts inside the folder to manage your server:
+Once installed, these scripts will be available inside the folder to manage your server:
 
 | Command | Description |
 | :--- | :--- |
@@ -54,9 +54,22 @@ Once installed, use these scripts inside the folder to manage your server:
 | `./forcekill.sh` | **Emergency only.** Kills the process immediately (data loss risk). |
 | `./uninstall.sh` | **Danger.** Deletes the entire server folder and removes cron jobs. |
 | `./dashboard.sh` | The nifty TUI Dashboard to manage your server. |
-| `mcserver` | Global mcserver command to manage your intalled Minecraft servers. |
 
+## 4. Managements Commands
+
+These commands are currently available
+
+| Command | Description |
+| :--- | :--- |
+| `mcserver` | Opens the interactive server selector menu. |
+| `mcserver list` | Displays a table of all registered servers and their paths. |
+| `mcserver <name>` | Instantly launches the dashboard for the specific server (e.g., `mcserver Survival`). |
+| `mcserver -h` | Displays the help message and usage guide. |
 ---
+## 5. Install modpacks
+
+Should you select the NeoForge installation, `install_modpacks.sh` will become available.
+A smart mod installation script.
 
 ## 📋 Requirements
 
