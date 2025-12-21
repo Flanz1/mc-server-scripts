@@ -219,32 +219,50 @@ EOF
 create_stop_script() {
     cat << 'EOF' > stop.sh
 #!/bin/bash
-# Auto-detect screen session
+SERVER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Detect Screen
 DETECTED_SCREEN=$(screen -ls | grep -E "minecraft|mcserver|Forge|Paper" | awk '{print $1}' | cut -d. -f2 | head -n 1)
 if [ -z "$DETECTED_SCREEN" ]; then DETECTED_SCREEN=$(screen -ls | grep -P '^\t\d+\.' | awk '{print $1}' | cut -d. -f2 | head -n 1); fi
 SCREEN_NAME="${DETECTED_SCREEN:-minecraft}"
 
 if screen -list | grep -q "$SCREEN_NAME"; then
-    echo "🛑 Sending stop command to session: $SCREEN_NAME"
+    echo "🛑 Sending STOP signal..."
 
-    # ---------------------------------------------------------
-    # FIX: Added -X so 'stuff' is treated as a screen command
-    # FIX: Used $(printf \\r) to simulate the ENTER key safely
-    # ---------------------------------------------------------
-    screen -S "$SCREEN_NAME" -p 0 -X stuff "stop$(printf \\r)"
+    # Send "stop" + Enter safely using eval/printf
+    screen -S "$SCREEN_NAME" -p 0 -X eval 'stuff "stop\015"'
 
-    echo "⏳ Waiting for shutdown..."
+    echo "⏳ Waiting for server to close (Max 30s)..."
+
+    COUNT=0
     while screen -list | grep -q "$SCREEN_NAME"; do
         sleep 1
         echo -n "."
+        ((COUNT++))
+
+        # Timeout Logic
+        if [ $COUNT -ge 30 ]; then
+            echo ""
+            echo "⚠️  Server is stuck. Switching to Force Kill..."
+            if [ -f "./forcekill.sh" ]; then
+                ./forcekill.sh
+            else
+                # Fallback surgical kill
+                JAVA_PID=$(pgrep -f "java.*$SERVER_DIR")
+                [ -n "$JAVA_PID" ] && kill -9 "$JAVA_PID"
+                screen -X -S "$SCREEN_NAME" quit
+            fi
+            break
+        fi
     done
-    echo -e "\n✅ Server stopped."
+    echo ""
+    echo "✅ Server stopped."
 else
-    echo "⚠️  Server is not running (Screen '$SCREEN_NAME' not found)."
+    echo "⚠️  Server is not running."
 fi
 EOF
     chmod +x stop.sh
-    echo "✅ stop.sh created."
+    echo "✅ stop.sh created (With Timeout)."
 }
 
 create_start_script() {
