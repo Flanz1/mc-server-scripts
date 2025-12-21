@@ -737,7 +737,6 @@ draw_ui() {
     print_line 18 "   \${BLUE}[U]\${NORM} 🔄 Update Tools"
     print_line 19 "\${BLUE}============================================================\${NORM}"
     print_line 20 "   \${RED}[Q]\${NORM} Quit"
-    print_line 21 " \${WHITE}Live Monitoring...\${NORM}                                  "
     tput cup \$TERM_LINES \$TERM_COLS
 }
 
