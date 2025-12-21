@@ -962,6 +962,7 @@ if [ "$1" == "--refresh" ]; then
     create_forcekill_script
     create_uninstall_script
     create_backup_system
+    configure_autostart_service
     install_dashboard
     setup_global_command "$(basename "$(pwd)")" "$(pwd)"
 
