@@ -543,8 +543,8 @@ SERVER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # --- STYLING ---
 BOLD=$(tput bold); NORM=$(tput sgr0)
 RED=$(tput setaf 1); GREEN=$(tput setaf 2); YELLOW=$(tput setaf 3)
-BLUE=$(tput setaf 4); CYAN=$(tput setaf 6); WHITE=$(tput setaf 7); GRAY=$(tput setaf 8)
-UI_WIDTH=60; UI_HEIGHT=19
+BLUE=$(tput setaf 4); CYAN=$(tput setaf 6); WHITE=$(tput setaf 7); GRAY=$(tput setaf 8); MAGENTA=$(tput setaf 5)
+UI_WIDTH=60; UI_HEIGHT=20
 
 # --- FUNCTIONS ---
 detect_screen() {
@@ -574,7 +574,7 @@ toggle_autostart() {
     CRON_CMD="@reboot /usr/bin/screen -dmS $SCREEN_NAME /bin/bash $SERVER_DIR/$START_SCRIPT"
 
     if [ "$AUTOSTART_STATE" == "on" ]; then
-        (crontab -l 2>/dev/null | grep -vF "$SERVER_DIR") | crontab -
+        (crontab -l 2>/dev/null | grep -vF "$SERVER_DIR/$START_SCRIPT") | crontab -
         echo "✅ Auto-start disabled."
     else
         (crontab -l 2>/dev/null; echo "$CRON_CMD") | crontab -
@@ -582,8 +582,48 @@ toggle_autostart() {
     fi
 }
 
+# --- DYNAMIC AUTO-RESTART ---
+check_autorestart() {
+    # Find existing cron entry for restart.sh
+    EXISTING_CRON=$(crontab -l 2>/dev/null | grep -F "$SERVER_DIR/restart.sh")
+
+    if [ -n "$EXISTING_CRON" ]; then
+        # Extract Minute ($1) and Hour ($2)
+        MIN=$(echo "$EXISTING_CRON" | awk '{print $1}')
+        HOUR=$(echo "$EXISTING_CRON" | awk '{print $2}')
+        # Pad with zero if needed (e.g., 7 -> 07)
+        printf -v PRETTY_TIME "%02d:%02d" "$HOUR" "$MIN"
+        AUTORESTART_MSG="${GREEN}${BOLD}ON ($PRETTY_TIME)${NORM}"; AUTORESTART_STATE="on"
+    else
+        AUTORESTART_MSG="${RED}${BOLD}OFF${NORM}"; AUTORESTART_STATE="off"
+    fi
+}
+
+toggle_autorestart() {
+    if [ "$AUTORESTART_STATE" == "on" ]; then
+        (crontab -l 2>/dev/null | grep -vF "$SERVER_DIR/restart.sh") | crontab -
+        echo "✅ Daily restart disabled."
+    else
+        echo "-----------------------------------"
+        echo "⏰ Configure Daily Auto-Restart"
+        echo "-----------------------------------"
+        read -p "Enter Hour (0-23): " IN_HOUR
+        read -p "Enter Minute (0-59): " IN_MIN
+
+        # Validation
+        if ! [[ "$IN_HOUR" =~ ^[0-9]+$ ]] || [ "$IN_HOUR" -lt 0 ] || [ "$IN_HOUR" -gt 23 ]; then echo "❌ Invalid Hour."; return; fi
+        if ! [[ "$IN_MIN" =~ ^[0-9]+$ ]] || [ "$IN_MIN" -lt 0 ] || [ "$IN_MIN" -gt 59 ]; then echo "❌ Invalid Minute."; return; fi
+
+        # Construct Cron: Minute Hour * * * Command
+        CRON_CMD="$IN_MIN $IN_HOUR * * * /bin/bash $SERVER_DIR/restart.sh >/dev/null 2>&1"
+
+        (crontab -l 2>/dev/null; echo "$CRON_CMD") | crontab -
+        printf "✅ Restart scheduled for %02d:%02d daily.\n" "$IN_HOUR" "$IN_MIN"
+    fi
+}
+
 get_server_stats() {
-    detect_screen; check_autostart
+    detect_screen; check_autostart; check_autorestart
     if screen -list | grep -q "$SCREEN_NAME"; then
         STATUS="${GREEN}${BOLD}ONLINE${NORM}"
         find_java_pid
@@ -592,16 +632,13 @@ get_server_stats() {
             CPU_RAW=$(echo "$STATS" | awk '{print $1}')
             RAM_KB=$(echo "$STATS" | awk '{print $2}')
             RAM_MB=$((RAM_KB / 1024))
-
             MAX_RAM_VISUAL=12288
             RAM_PERCENT=$(( (RAM_MB * 100) / MAX_RAM_VISUAL ))
             [[ $RAM_PERCENT -gt 100 ]] && RAM_PERCENT=100
 
-            # Draw RAM Bar
             R_FILL=$(( (RAM_PERCENT * 18) / 100 )); R_EMPTY=$(( 18 - R_FILL ))
             RAM_BAR=""; for ((i=0; i<R_FILL; i++)); do RAM_BAR="${RAM_BAR}#"; done; for ((i=0; i<R_EMPTY; i++)); do RAM_BAR="${RAM_BAR}."; done
 
-            # Draw CPU Bar
             CPU_INT=${CPU_RAW%.*}; [[ $CPU_INT -gt 100 ]] && CPU_VISUAL=100 || CPU_VISUAL=$CPU_INT
             C_FILL=$(( (CPU_VISUAL * 18) / 100 )); C_EMPTY=$(( 18 - C_FILL ))
             CPU_BAR=""; for ((i=0; i<C_FILL; i++)); do CPU_BAR="${CPU_BAR}#"; done; for ((i=0; i<C_EMPTY; i++)); do CPU_BAR="${CPU_BAR}."; done
@@ -630,19 +667,21 @@ draw_ui() {
     print_line 2  "${BLUE}============================================================${NORM}"
     print_line 3  " Path:      ${GRAY}${SERVER_DIR}${NORM}"
     print_line 4  " Session:   ${CYAN}${SCREEN_NAME}${NORM} $PID_TEXT"
-    print_line 5  " Status:    $STATUS        ⏰ Auto-Start: $AUTOSTART_MSG"
-    print_line 6  ""
-    print_line 7  " $STATS_TEXT_1"
-    print_line 8  " $STATS_TEXT_2"
-    print_line 9  ""
-    print_line 10 "${BLUE}------------------------------------------------------------${NORM}"
-    print_line 11 "   ${GREEN}[1]${NORM} ▶ Start Server      ${YELLOW}[5]${NORM} 📦 Install Modpack"
-    print_line 12 "   ${RED}[2]${NORM} ■ Stop Server       ${YELLOW}[6]${NORM} 🌐 Playit.gg Status"
-    print_line 13 "   ${CYAN}[3]${NORM} > Open Console      ${MAGENTA}[7]${NORM} ⏰ Toggle Auto-Start"
-    print_line 14 "   ${YELLOW}[4]${NORM} 💾 Force Backup     ${RED}[8]${NORM} ❌ Uninstall"
-    print_line 15 "   ${RED}[Q]${NORM} Quit"
-    print_line 16 "${BLUE}============================================================${NORM}"
-    print_line 17 " ${WHITE}Live Monitoring...${NORM}                                  "
+    print_line 5  " Status:    $STATUS        ⏰ On Boot: $AUTOSTART_MSG"
+    print_line 6  "                           🔄 Daily:   $AUTORESTART_MSG"
+    print_line 7  ""
+    print_line 8  " $STATS_TEXT_1"
+    print_line 9  " $STATS_TEXT_2"
+    print_line 10 ""
+    print_line 11 "${BLUE}------------------------------------------------------------${NORM}"
+    print_line 12 "   ${GREEN}[1]${NORM} ▶ Start Server      ${YELLOW}[6]${NORM} 📦 Install Modpack"
+    print_line 13 "   ${RED}[2]${NORM} ■ Stop Server       ${YELLOW}[7]${NORM} 🌐 Playit.gg Status"
+    print_line 14 "   ${CYAN}[3]${NORM} > Open Console      ${MAGENTA}[8]${NORM} ⏰ Toggle On-Boot"
+    print_line 15 "   ${YELLOW}[4]${NORM} 💾 Force Backup     ${MAGENTA}[9]${NORM} 🔄 Schedule Restart"
+    print_line 16 "   ${RED}[5]${NORM} ❌ Uninstall"
+    print_line 17 "${BLUE}============================================================${NORM}"
+    print_line 18 "   ${RED}[Q]${NORM} Quit"
+    print_line 19 " ${WHITE}Live Monitoring...${NORM}                                  "
     tput cup $TERM_LINES $TERM_COLS
 }
 
@@ -656,10 +695,11 @@ while true; do
             2) clear; echo -e "\n${RED}--> Stopping...${NORM}"; ./stop.sh; read -p "Press Enter..."; clear ;;
             3) tput cnorm; clear; echo -e "${CYAN}--> Console... (Ctrl+A, D to exit)${NORM}"; sleep 1; screen -r "$SCREEN_NAME"; tput civis; clear ;;
             4) clear; echo -e "\n${YELLOW}--> Backup...${NORM}"; [ -f "./backup.sh" ] && ./backup.sh; read -p "Done."; clear ;;
-            5) tput cnorm; clear; [ -f "./install_modpack.sh" ] && ./install_modpack.sh; read -p "Done."; tput civis; clear ;;
-            6) clear; echo -e "\n${CYAN}--> Playit.gg${NORM}"; sudo systemctl status playit --no-pager; read -p "Done."; clear ;;
-            7) clear; echo -e "\n${MAGENTA}--> Toggling Auto-Start...${NORM}"; toggle_autostart; read -p "Done."; clear ;;
-            8) clear; echo -e "\n${MAGENTA}--> Running uninstall script...${NORM}"; ./uninstall.sh; read -p "Done."; exit 0 ;;
+            5) clear; echo -e "\n${RED}--> Uninstalling...${NORM}"; [ -f "./uninstall.sh" ] && ./uninstall.sh; read -p "Press Enter..."; clear ;;
+            6) tput cnorm; clear; [ -f "./install_modpack.sh" ] && ./install_modpack.sh; read -p "Done."; tput civis; clear ;;
+            7) clear; echo -e "\n${CYAN}--> Playit.gg${NORM}"; sudo systemctl status playit --no-pager; read -p "Done."; clear ;;
+            8) clear; echo -e "\n${MAGENTA}--> Toggling On-Boot Start...${NORM}"; toggle_autostart; read -p "Done."; clear ;;
+            9) clear; echo -e "\n${MAGENTA}--> Configuring Daily Restart...${NORM}"; toggle_autorestart; read -p "Press Enter..."; clear ;;
             q|Q) exit 0 ;;
         esac
     fi
