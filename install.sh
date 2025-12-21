@@ -251,6 +251,7 @@ if screen -list | grep -q "$SCREEN_NAME"; then
                 JAVA_PID=$(pgrep -f "java.*$SERVER_DIR")
                 [ -n "$JAVA_PID" ] && kill -9 "$JAVA_PID"
                 screen -X -S "$SCREEN_NAME" quit
+                screem
             fi
             break
         fi
@@ -266,45 +267,49 @@ EOF
 }
 
 create_start_script() {
-    # Logic to handle different start commands
-    if [ "$SERVER_TYPE" == "2" ]; then
-        # NeoForge uses run.sh
-        START_CMD="./run.sh"
-    else
-        # Paper uses java -jar
-        START_CMD="java -Xms$RAM -Xmx$RAM -jar $JAR_FILE nogui"
+    cat << 'EOF' > start.sh
+#!/bin/bash
+SERVER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SERVER_DIR"
+
+# 1. CLEANUP GHOST SCREENS
+# This removes "Dead" sockets that confuse the system
+screen -wipe >/dev/null 2>&1
+
+# 2. DETECT SETTINGS
+DETECTED_SCREEN=$(screen -ls | grep -E "minecraft|mcserver|Forge|Paper" | awk '{print $1}' | cut -d. -f2 | head -n 1)
+SCREEN_NAME="${DETECTED_SCREEN:-minecraft}"
+
+# 3. CHECK IF RUNNING
+if screen -list | grep -q "$SCREEN_NAME"; then
+    echo "⚠️  Server is already running in screen: $SCREEN_NAME"
+    exit 1
+fi
+
+echo "🚀 Starting Server ($SCREEN_NAME)..."
+
+# 4. DETERMINE START COMMAND
+# If run.sh exists (NeoForge/Modpacks), use it. Otherwise use Java.
+if [ -f "run.sh" ]; then
+    chmod +x run.sh
+    START_CMD="./run.sh"
+else
+    # Default RAM if not detected
+    RAM="4G"
+    if [ -f "user_jvm_args.txt" ]; then
+        RAM=$(grep -o '-Xmx[0-9]\+[GM]' user_jvm_args.txt | head -1 | sed 's/-Xmx//')
     fi
+    START_CMD="java -Xms$RAM -Xmx$RAM -jar server.jar nogui"
+fi
 
-cat << EOF > start.sh
-    #!/bin/bash
-    SCREEN_NAME="$SCREEN_NAME"
+# 5. LAUNCH SCREEN
+# We launch the screen here. The script finishes, but screen stays in background.
+/usr/bin/screen -dmS "$SCREEN_NAME" /bin/bash -c "$START_CMD; exec bash"
 
-    if [ -z "\$STY" ]; then
-        if screen -list | grep -q "\$SCREEN_NAME"; then
-            echo "⚠️  Server is already running! Type 'screen -r \$SCREEN_NAME' to view it."
-        else
-            echo "🚀 Starting Minecraft server in background screen '\$SCREEN_NAME'..."
-            screen -dmS \$SCREEN_NAME "\$0"
-            echo "✅ Done! Server is booting up."
-            echo "   - View console: screen -r \$SCREEN_NAME"
-            echo "   - Detach again: Ctrl + A, then D"
-        fi
-        exit
-    fi
-
-    while true
-    do
-        echo "--- Starting Server ---"
-        $START_CMD
-        echo "---------------------------------------"
-        echo "Server closed. Restarting in 5 seconds..."
-        echo "Press CTRL+C NOW to stop the loop!"
-        echo "---------------------------------------"
-        sleep 5
-    done
+echo "✅ Server started in background."
 EOF
     chmod +x start.sh
-    echo "✅ Created start.sh"
+    echo "✅ start.sh created (Smart Mode)."
 }
 
 create_restart_script() {
@@ -810,13 +815,10 @@ EOF
 configure_autostart_service() {
     echo "⚙️  Configuring Auto-Start Service..."
 
-    # Define variables dynamically based on where the script is running
     SERVICE_NAME="minecraft-$(basename "$(pwd)")"
     SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
     CURRENT_USER="$(whoami)"
     SERVER_DIR="$(pwd)"
-
-    echo "   - Creating service: $SERVICE_NAME"
 
     # Write the service file
     cat << EOF | sudo tee "$SERVICE_FILE" > /dev/null
@@ -830,14 +832,14 @@ Group=$CURRENT_USER
 Type=forking
 WorkingDirectory=$SERVER_DIR
 
-# START: Launch Screen Session in detached mode
-ExecStart=/usr/bin/screen -dmS minecraft /bin/bash $SERVER_DIR/start.sh
+# START: Just run the script (which handles the screen creation)
+ExecStart=/bin/bash $SERVER_DIR/start.sh
 
 # STOP: Send safe stop command to console
 ExecStop=/usr/bin/screen -p 0 -S minecraft -X eval 'stuff "stop\015"'
 ExecStop=/bin/sleep 10
 
-# RESTART: Retry if it crashes
+# RESTART: Auto-restart if it crashes
 Restart=always
 RestartSec=30
 
@@ -845,11 +847,10 @@ RestartSec=30
 WantedBy=multi-user.target
 EOF
 
-    # Enable the service
-    echo "   - Enabling service..."
+    # Reload and Enable
     sudo systemctl daemon-reload
     sudo systemctl enable "$SERVICE_NAME" >/dev/null 2>&1
-    echo "✅ Auto-start installed! Server will start on boot."
+    echo "✅ Auto-start updated (No-Inception Mode)."
 }
 
 
