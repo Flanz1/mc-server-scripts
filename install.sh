@@ -217,30 +217,34 @@ EOF
 }
 
 create_stop_script() {
-    cat << EOF > stop.sh
-    #!/bin/bash
-    SCREEN_NAME="$SCREEN_NAME"
-    JAR_FILE="$JAR_FILE"
-    if ! screen -list | grep -q "\$SCREEN_NAME"; then
-        echo "⚠️  Server is not running."
-        exit 1
-    fi
-    echo "🛑 Sending 'stop' command..."
-    screen -S \$SCREEN_NAME -X stuff "stop^M"
-    echo "⏳ Waiting for server to save and close..."
-    while screen -list | grep -q "\$SCREEN_NAME"; do
-        if ! pgrep -f "\$JAR_FILE" > /dev/null; then
-            echo "Server process finished. Closing screen session..."
-            screen -S \$SCREEN_NAME -X quit
-            break
-        fi
+    cat << 'EOF' > stop.sh
+#!/bin/bash
+# Auto-detect screen session
+DETECTED_SCREEN=$(screen -ls | grep -E "minecraft|mcserver|Forge|Paper" | awk '{print $1}' | cut -d. -f2 | head -n 1)
+if [ -z "$DETECTED_SCREEN" ]; then DETECTED_SCREEN=$(screen -ls | grep -P '^\t\d+\.' | awk '{print $1}' | cut -d. -f2 | head -n 1); fi
+SCREEN_NAME="${DETECTED_SCREEN:-minecraft}"
+
+if screen -list | grep -q "$SCREEN_NAME"; then
+    echo "🛑 Sending stop command to session: $SCREEN_NAME"
+
+    # ---------------------------------------------------------
+    # FIX: Added -X so 'stuff' is treated as a screen command
+    # FIX: Used $(printf \\r) to simulate the ENTER key safely
+    # ---------------------------------------------------------
+    screen -S "$SCREEN_NAME" -p 0 -X stuff "stop$(printf \\r)"
+
+    echo "⏳ Waiting for shutdown..."
+    while screen -list | grep -q "$SCREEN_NAME"; do
         sleep 1
+        echo -n "."
     done
-    echo "✅ Server stopped."
+    echo -e "\n✅ Server stopped."
+else
+    echo "⚠️  Server is not running (Screen '$SCREEN_NAME' not found)."
+fi
 EOF
     chmod +x stop.sh
-
-echo "✅ Created stop.sh"
+    echo "✅ stop.sh created."
 }
 
 create_start_script() {
