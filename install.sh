@@ -537,24 +537,44 @@ echo "✅ Created forcekill.sh"
 }
 
 create_uninstall_script() {
-    cat << EOF > uninstall.sh
-    #!/bin/bash
-    CURRENT_DIR="\$(pwd)"
-    echo "⚠️  WARNING: PERMANENTLY DELETE SERVER?"
-    read -p "Type 'delete' to confirm: " CONFIRM
-    if [ "\$CONFIRM" != "delete" ]; then
-        echo "❌ Cancelled."
-        exit 1
-    fi
-    ./forcekill.sh 2>/dev/null
-    crontab -l | grep -v "\$(pwd)" | crontab -
-    cd ..
-    rm -rf "\$(pwd)"
-    cd
-    echo "✅ Uninstall Complete."
+    cat << 'EOF' > uninstall.sh
+#!/bin/bash
+# Capture the directory BEFORE we leave it
+TARGET_DIR="$(pwd)"
+
+echo "⚠️  WARNING: This will PERMANENTLY DELETE:"
+echo "   $TARGET_DIR"
+echo "------------------------------------------"
+read -p "Type 'delete' to confirm: " CONFIRM
+
+if [ "$CONFIRM" != "delete" ]; then
+    echo "❌ Cancelled."
+    exit 1
+fi
+
+# 1. Stop Server
+./forcekill.sh 2>/dev/null
+
+# 2. Remove Cron Jobs (Auto-Start/Backup)
+# We grep for the specific folder path to remove only this server's jobs
+(crontab -l 2>/dev/null | grep -vF "$TARGET_DIR") | crontab -
+
+# 3. Delete the Directory
+if [ "$(pwd)" == "/" ]; then
+    echo "❌ Safety Stop: Cannot delete root!"
+    exit 1
+fi
+
+# SAFETY CHECK: Ensure we are deleting the folder we came from, not the current one
+if [ -d "$TARGET_DIR" ]; then
+    rm -rf "$TARGET_DIR"
+    echo "✅ Uninstall Complete. Server files deleted."
+else
+    echo "❌ Error: Could not find directory to delete."
+fi
 EOF
-chmod +x uninstall.sh
-echo "✅ Created uninstall.sh"
+    chmod +x uninstall.sh
+    echo "✅ Created uninstall.sh (SAFE MODE)"
 }
 
 # Modpack Installer
