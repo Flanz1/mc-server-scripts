@@ -359,7 +359,6 @@ if [ "$(pwd)" == "/" ]; then
 fi
 
 if [ -d "$TARGET_DIR" ]; then
-    cd ..
     rm -rf "$TARGET_DIR"
     echo "✅ Uninstall Complete. Server files deleted."
 else
@@ -522,7 +521,6 @@ EOF
 
 # 3. Dashboard Installer
 install_dashboard() {
-
 cat << EOF > dashboard.sh
 #!/bin/bash
 SERVER_DIR="\$( cd "\$( dirname "\${BASH_SOURCE[0]}" )" && pwd )"
@@ -735,30 +733,29 @@ draw_ui() {
     tput cup \$TERM_LINES \$TERM_COLS
 }
 
-# --- MAIN LOOP WITH ALTERNATE SCREEN ---
-# tput smcup = Save Screen (Enter Alt Mode - No Scrollbar)
-# tput rmcup = Restore Screen (Exit Alt Mode - Back to History)
-tput smcup
-tput civis
-trap "tput rmcup; tput cnorm; exit" EXIT
+# --- MAIN LOOP ---
+# smcup: Save Screen (Alt Buffer) | civis: Hide Cursor | stty -echo: No Input Noise
+tput smcup; tput civis; stty -echo
+trap "tput rmcup; tput cnorm; stty echo; exit" EXIT
 clear
 
 while true; do
     draw_ui
+    # Silent read (-s) matches our echo-off logic
     read -t 1 -n 1 -s key
     if [ -n "\$key" ]; then
         case \$key in
             1) clear; echo -e "\n\${GREEN}--> Starting...\${NORM}"; if [ -f "./start.sh" ]; then ./start.sh; elif [ -f "./run.sh" ]; then ./run.sh; fi; read -p "Press Enter..."; clear ;;
             2) clear; echo -e "\n\${RED}--> Stopping...\${NORM}"; ./stop.sh; read -p "Press Enter..."; clear ;;
-            3) tput cnorm; clear; echo -e "\${CYAN}--> Console... (Ctrl+A, D to exit)\${NORM}"; sleep 1; screen -r "\$SCREEN_NAME"; tput civis; clear ;;
+            3) tput cnorm; stty echo; clear; echo -e "\${CYAN}--> Console... (Ctrl+A, D to exit)\${NORM}"; sleep 1; screen -r "\$SCREEN_NAME"; tput civis; stty -echo; clear ;;
             4) clear; echo -e "\n\${YELLOW}--> Backup...\${NORM}"; [ -f "./backup.sh" ] && ./backup.sh; read -p "Done."; clear ;;
             5) clear; echo -e "\n\${RED}--> Uninstalling...\${NORM}"; [ -f "./uninstall.sh" ] && ./uninstall.sh; read -p "Press Enter..."; clear ;;
-            6) tput cnorm; clear; [ -f "./install_modpack.sh" ] && ./install_modpack.sh; read -p "Done."; tput civis; clear ;;
+            6) tput cnorm; stty echo; clear; [ -f "./install_modpack.sh" ] && ./install_modpack.sh; read -p "Done."; tput civis; stty -echo; clear ;;
             7) clear; echo -e "\n\${CYAN}--> Playit.gg\${NORM}"; sudo systemctl status playit --no-pager; read -p "Done."; clear ;;
             8) clear; echo -e "\n\${MAGENTA}--> Toggling On-Boot Start...\${NORM}"; toggle_autostart; read -p "Done."; clear ;;
-            9) clear; echo -e "\n\${MAGENTA}--> Configuring Daily Restart...\${NORM}"; toggle_autorestart; read -p "Press Enter..."; clear ;;
-            0) change_ram; clear ;;
-            u|U) perform_update ;;
+            9) stty echo; clear; echo -e "\n\${MAGENTA}--> Configuring Daily Restart...\${NORM}"; toggle_autorestart; read -p "Press Enter..."; stty -echo; clear ;;
+            0) stty echo; change_ram; stty -echo; clear ;;
+            u|U) stty echo; perform_update ;;
             q|Q) exit 0 ;;
         esac
     fi
