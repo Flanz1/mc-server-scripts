@@ -217,7 +217,7 @@ EOF
 }
 
 create_stop_script() {
-    cat << 'EOF' > stop.sh#!/bin/bash
+    cat << 'EOF' > stop.sh
 #!/bin/bash
 
 # Settings
@@ -864,7 +864,6 @@ while true; do
 
             m|M) tput cnorm; stty echo; clear; [ -f "./install_modpack.sh" ] && ./install_modpack.sh; read -p "Done."; tput civis; stty -echo; clear ;;
 
-            # NEW RESTORE ENTRY
             r|R) tput cnorm; stty echo; clear; [ -f "./restore.sh" ] && ./restore.sh; read -p "Press Enter..."; tput civis; stty -echo; clear ;;
 
             k|K) tput cnorm; stty echo; ./forcekill.sh; read -p "Done."; clear;;
