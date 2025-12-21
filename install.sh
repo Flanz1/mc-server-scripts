@@ -523,9 +523,7 @@ EOF
     }
 }
 
-# ==========================================
-# 3. Dashboard Installer (Cleaned)
-# ==========================================
+# 3. Dashboard Installer
 install_dashboard() {
     cat << 'EOF' > dashboard.sh
 #!/bin/bash
@@ -629,12 +627,13 @@ draw_ui() {
     print_line 8  " $STATS_TEXT_2"
     print_line 9  ""
     print_line 10 "${BLUE}------------------------------------------------------------${NORM}"
-    print_line 11 "   ${GREEN}[1]${NORM} ▶ Start Server      ${YELLOW}[5]${NORM} 📦 Install Modpack"
-    print_line 12 "   ${RED}[2]${NORM} ■ Stop Server       ${YELLOW}[6]${NORM} 🌐 Playit.gg Status"
+    print_line 11 "   ${GREEN}[1]${NORM} ▶ Start Server     ${YELLOW}[5]${NORM} 📦 Install Modpack"
+    print_line 12 "   ${RED}[2]${NORM} ■ Stop Server        ${YELLOW}[6]${NORM} 🌐 Playit.gg Status"
     print_line 13 "   ${CYAN}[3]${NORM} > Open Console      ${MAGENTA}[7]${NORM} ⏰ Toggle Auto-Start"
-    print_line 14 "   ${YELLOW}[4]${NORM} 💾 Force Backup     ${RED}[Q]${NORM} Quit"
-    print_line 15 "${BLUE}============================================================${NORM}"
-    print_line 16 " ${WHITE}Live Monitoring...${NORM}                                  "
+    print_line 14 "   ${YELLOW}[4]${NORM} 💾 Force Backup   ${RED}[8]${NORM} ❌ Uninstall"
+    print line 15 "   ${RED}[Q]${NORM} Quit"
+    print_line 16 "${BLUE}============================================================${NORM}"
+    print_line 17 " ${WHITE}Live Monitoring...${NORM}                                  "
     tput cup $TERM_LINES $TERM_COLS
 }
 
@@ -651,6 +650,7 @@ while true; do
             5) tput cnorm; clear; [ -f "./install_modpack.sh" ] && ./install_modpack.sh; read -p "Done."; tput civis; clear ;;
             6) clear; echo -e "\n${CYAN}--> Playit.gg${NORM}"; sudo systemctl status playit --no-pager; read -p "Done."; clear ;;
             7) clear; echo -e "\n${MAGENTA}--> Toggling Auto-Start...${NORM}"; toggle_autostart; read -p "Done."; clear ;;
+            8) clear; echo -e "\n${MAGENTA}--> Running uninstall script...${NORM}"; ./uninstall; read -p "Done."; exit 0 ;;
             q|Q) exit 0 ;;
         esac
     fi
