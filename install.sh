@@ -685,7 +685,7 @@ while true; do
             2) clear; echo -e "\n${RED}--> Stopping...${NORM}"; ./stop.sh; read -p "Press Enter..."; clear ;;
             3) tput cnorm; clear; echo -e "${CYAN}--> Console... (Ctrl+A, D to exit)${NORM}"; sleep 1; screen -r "$SCREEN_NAME"; tput civis; clear ;;
             4) clear; echo -e "\n${YELLOW}--> Backup...${NORM}"; [ -f "./backup.sh" ] && ./backup.sh; read -p "Done."; clear ;;
-            5) clear; echo -e "\n${RED}--> Uninstalling...${NORM}"; [ -f "./uninstall.sh" ] && ./uninstall.sh; read -p "Press Enter..."; clear ;;
+            5) clear; echo -e "\n${RED}--> Uninstalling...${NORM}"; [ -f "./uninstall.sh" ] && ./uninstall.sh; read -p "Press Enter..."; exit 0;;
             6) tput cnorm; clear; [ -f "./install_modpack.sh" ] && ./install_modpack.sh; read -p "Done."; tput civis; clear ;;
             7) clear; echo -e "\n${CYAN}--> Playit.gg${NORM}"; sudo systemctl status playit --no-pager; read -p "Done."; clear ;;
             8) clear; echo -e "\n${MAGENTA}--> Toggling On-Boot Start...${NORM}"; toggle_autostart; read -p "Done."; clear ;;
