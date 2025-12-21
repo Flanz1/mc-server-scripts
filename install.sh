@@ -555,7 +555,7 @@ check_autostart() {
     fi
 }
 
-toggle_autostart() {https://mediafilez.forgecdn.net/files/7294/979/ServerFiles-5.3.1.zip
+toggle_autostart() {
     if [ -f "$SERVER_DIR/run.sh" ]; then START_SCRIPT="run.sh"; else START_SCRIPT="start.sh"; fi
     CRON_CMD="@reboot /usr/bin/screen -dmS $SCREEN_NAME /bin/bash $SERVER_DIR/$START_SCRIPT"
 
