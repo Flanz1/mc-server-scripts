@@ -12,9 +12,14 @@ if [ -n "$1" ]; then
     TARGET_DIR="$1"
 else
     read -p "Enter desired directory for docker deployment [Default: $DEFAULT_DIR]: " INPUT_DIR
-    TARGET_DIR="${INPUT_DIR:-$DEFAULT_DIR}"
+    <TARGET_DIR="${INPUT_DIR:-$DEFAULT_DIR}"
 fi
 
+# If the string starts with "~", replace it with the value of $HOME
+if [[ "$TARGET_DIR" == ~* ]]; then
+    TARGET_DIR="${TARGET_DIR/#\~/$HOME}"
+fi
+# --------------------------------------
 echo "-> Target Directory: $TARGET_DIR"
 
 # 2. Create Folder
