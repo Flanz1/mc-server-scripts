@@ -1098,12 +1098,11 @@ install_minecraft_server() {
 # ==========================================
 # 2. MAIN EXECUTION
 # ==========================================
-# ==========================================
-# 4. REFRESH / UPDATE MODE
-# ==========================================
 
-if [ "$1" == "--refresh" ]; then
+# CHANGE THIS LINE:
+if [[ "$1" == "--refresh" || "$2" == "--refresh" ]]; then
     echo "🔄 Update Mode: Detecting configuration..."
+    # ... rest of the logic ...
 
     # 1. Detect RAM from existing files (Updated for compatibility)
     if [ -f "user_jvm_args.txt" ]; then
