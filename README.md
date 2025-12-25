@@ -21,6 +21,11 @@ Run this one-liner on your Linux machine (Ubuntu/Debian recommended):
 
 ```
 
+For docker deployment(I'm going to assume you know how to use docker)
+```bash
+    wget -qO setup_docker.sh https://raw.githubusercontent.com/Flanz1/mc-server-scripts/main/setup_docker.sh && chmod +x setup_docker.sh && ./setup_docker.sh
+```
+
 Follow the on-screen prompts to select your server type (Paper/NeoForge), set RAM, and choose a folder name.
 
 ## 🖥️ How to Use
