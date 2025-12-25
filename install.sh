@@ -183,10 +183,26 @@ echo "=========================================="
 echo "⚠️  For ATM10, check the modpack version for the required NeoForge version."
 read -p "Enter NeoForge Version (e.g., 21.1.73): " NF_VERSION
 
-if [ -z "$NF_VERSION" ]; then
-    echo "❌ Error: Version is required."
-    exit 1
-fi
+echo "=========================================="
+    echo "   NeoForge Server Updater"
+    echo "=========================================="
+
+    # --- NEW LOGIC START ---
+    # Check if passed from Docker Env
+    if [ -n "$NEOFORGE_VERSION" ]; then
+        echo "🐳 Docker Environment Detected: Using Version $NEOFORGE_VERSION"
+        NF_VERSION="$NEOFORGE_VERSION"
+    else
+        # Fallback to manual input
+        echo "⚠️  For ATM10, check the modpack version for the required NeoForge version."
+        read -p "Enter NeoForge Version (e.g., 21.1.73): " NF_VERSION
+    fi
+    # --- NEW LOGIC END ---
+
+    if [ -z "$NF_VERSION" ]; then
+        echo "❌ Error: Version is required."
+        exit 1
+    fi
 
 INSTALLER="neoforge-${NF_VERSION}-installer.jar"
 URL="https://maven.neoforged.net/releases/net/neoforged/neoforge/${NF_VERSION}/${INSTALLER}"
