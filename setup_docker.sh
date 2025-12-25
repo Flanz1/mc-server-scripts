@@ -51,14 +51,22 @@ wget -q -O docker-entrypoint.sh "$REPO_BASE/docker-entrypoint.sh"
 chmod +x install.sh docker-entrypoint.sh
 
 # 5. Launch
+# 5. Launch
 echo "🚀 Building and Starting Container..."
-# Check for modern 'docker compose' (v2) first, then legacy 'docker-compose' (v1)
-if docker compose version &> /dev/null; then
-    sudo docker compose up -d --build
-elif command -v docker-compose &> /dev/null; then
-    sudo docker-compose up -d --build
+
+# Logic: Try modern 'docker compose' (v2) first.
+# If that fails (returns non-zero), try legacy 'docker-compose' (v1).
+# If both fail, exit with an error.
+
+if sudo docker compose up -d --build; then
+    echo "✅ Successfully started with Docker Compose (v2)"
+elif sudo docker-compose up -d --build; then
+    echo "✅ Successfully started with Docker Compose (v1)"
 else
-    echo "❌ Error: Docker Compose not found!"
+    echo ""
+    echo "❌ Error: Docker Compose failed to start the container."
+    echo "   Please check the error message above."
+    echo "   (You might need to start the docker daemon with: sudo systemctl start docker)"
     exit 1
 fi
 

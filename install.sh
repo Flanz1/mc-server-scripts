@@ -15,7 +15,7 @@ if [ "$1" == "--docker" ]; then
     function apt-get() { echo "--> (Skipping apt-get in Docker)"; }
     function sudo() { "$@"; }
 fi
-# ...
+
 # ==========================================
 # Universal Minecraft Server Installer
 # Supports: PaperMC & NeoForge (ATM10)
@@ -27,22 +27,21 @@ fi
 
 papermc_update() {
     cat << 'EOF' > update.sh
-    #!/bin/bash
-    JAR_NAME="server.jar"
-    PROJECT="paper"
-    echo "🔎 Checking PaperMC API..."
-    VERSION=$(curl -s https://api.papermc.io/v2/projects/${PROJECT} | jq -r '.versions[-1]')
-    echo "   - Latest Version: $VERSION"
-    BUILD=$(curl -s https://api.papermc.io/v2/projects/${PROJECT}/versions/${VERSION} | jq -r '.builds[-1]')
-    echo "   - Latest Build:   #$BUILD"
-    DOWNLOAD_URL="https://api.papermc.io/v2/projects/${PROJECT}/versions/${VERSION}/builds/${BUILD}/downloads/${PROJECT}-${VERSION}-${BUILD}.jar"
-    echo "⬇️  Downloading PaperMC $VERSION (Build #$BUILD)..."
-    curl -o $JAR_NAME $DOWNLOAD_URL
-    echo "✅ Update Complete!"
+#!/bin/bash
+JAR_NAME="server.jar"
+PROJECT="paper"
+echo "🔎 Checking PaperMC API..."
+VERSION=$(curl -s https://api.papermc.io/v2/projects/${PROJECT} | jq -r '.versions[-1]')
+echo "   - Latest Version: $VERSION"
+BUILD=$(curl -s https://api.papermc.io/v2/projects/${PROJECT}/versions/${VERSION} | jq -r '.builds[-1]')
+echo "   - Latest Build:   #$BUILD"
+DOWNLOAD_URL="https://api.papermc.io/v2/projects/${PROJECT}/versions/${VERSION}/builds/${BUILD}/downloads/${PROJECT}-${VERSION}-${BUILD}.jar"
+echo "⬇️  Downloading PaperMC $VERSION (Build #$BUILD)..."
+curl -o $JAR_NAME $DOWNLOAD_URL
+echo "✅ Update Complete!"
 EOF
     chmod +x update.sh
     echo "✅ Created update.sh (PaperMC)"
-
 }
 
 # Global Command: 'mcserver'
@@ -152,7 +151,6 @@ install_playit() {
 
     echo -e "--> Creating System Service (Running as: $CURRENT_USER)..."
 
-    # NOTE: 'EOF' is NOT quoted here, so variables $CURRENT_USER and $USER_HOME will be filled in.
     cat << EOF | sudo tee /etc/systemd/system/playit.service > /dev/null
 [Unit]
 Description=Playit.gg Tunnel
@@ -176,58 +174,53 @@ EOF
 
 neoforge_update() {
     cat << 'EOF' > update.sh
-    #!/bin/bash
-    # NeoForge Updater & Cleaner
+#!/bin/bash
+# NeoForge Updater & Cleaner
 
-    echo "=========================================="
-    echo "   NeoForge Server Updater"
-    echo "=========================================="
-    echo "⚠️  For ATM10, check the modpack version for the required NeoForge version."
-    read -p "Enter NeoForge Version (e.g., 21.1.73): " NF_VERSION
+echo "=========================================="
+echo "   NeoForge Server Updater"
+echo "=========================================="
+echo "⚠️  For ATM10, check the modpack version for the required NeoForge version."
+read -p "Enter NeoForge Version (e.g., 21.1.73): " NF_VERSION
 
-    if [ -z "$NF_VERSION" ]; then
-        echo "❌ Error: Version is required."
-        exit 1
-    fi
+if [ -z "$NF_VERSION" ]; then
+    echo "❌ Error: Version is required."
+    exit 1
+fi
 
-    INSTALLER="neoforge-${NF_VERSION}-installer.jar"
-    URL="https://maven.neoforged.net/releases/net/neoforged/neoforge/${NF_VERSION}/${INSTALLER}"
+INSTALLER="neoforge-${NF_VERSION}-installer.jar"
+URL="https://maven.neoforged.net/releases/net/neoforged/neoforge/${NF_VERSION}/${INSTALLER}"
 
-    echo "⬇️  Downloading installer: $INSTALLER..."
-    wget -O installer.jar "$URL"
+echo "⬇️  Downloading installer: $INSTALLER..."
+wget -O installer.jar "$URL"
 
-    if [ ! -f installer.jar ]; then
-        echo "❌ Error: Download failed. Check the version number."
-        exit 1
-    fi
+if [ ! -f installer.jar ]; then
+    echo "❌ Error: Download failed. Check the version number."
+    exit 1
+fi
 
-    echo "⚙️  Running NeoForge Installer..."
-    java -jar installer.jar --installServer
+echo "⚙️  Running NeoForge Installer..."
+java -jar installer.jar --installServer
 
-    # === CLEANUP & CONFIGURATION ===
-    echo "🧹 Cleaning up clutter..."
-    rm installer.jar
-    rm installer.jar.log 2>/dev/null
-    rm run.bat 2>/dev/null  # Remove Windows junk
+# === CLEANUP & CONFIGURATION ===
+echo "🧹 Cleaning up clutter..."
+rm installer.jar
+rm installer.jar.log 2>/dev/null
+rm run.bat 2>/dev/null  # Remove Windows junk
 
-    # === RAM SYNC ===
-    # We grab the RAM variable from the main script if possible, or default to 4G
-    # Note: When running this update.sh standalone later, RAM might not be set.
-    # So we check if user_jvm_args.txt exists, if not we create it.
+# === RAM SYNC ===
+if [ ! -f "user_jvm_args.txt" ]; then
+    echo "-Xms4G" > user_jvm_args.txt
+    echo "-Xmx4G" >> user_jvm_args.txt
+    echo "📝 Created user_jvm_args.txt with default 4G RAM."
+else
+    echo "✅ user_jvm_args.txt preserved."
+fi
 
-    if [ ! -f "user_jvm_args.txt" ]; then
-        echo "-Xms4G" > user_jvm_args.txt
-        echo "-Xmx4G" >> user_jvm_args.txt
-        echo "📝 Created user_jvm_args.txt with default 4G RAM."
-    else
-        echo "✅ user_jvm_args.txt preserved."
-    fi
-
-    echo "✅ NeoForge updated to $NF_VERSION."
+echo "✅ NeoForge updated to $NF_VERSION."
 EOF
     chmod +x update.sh
     echo "✅ Created update.sh (NeoForge + Auto-Cleaner)"
-
 }
 
 create_stop_script() {
@@ -242,9 +235,7 @@ BACKUP_SCRIPT="./backup.sh"
 # --- 1. Run Pre-Shutdown Backup ---
 if [ -f "$BACKUP_SCRIPT" ]; then
     echo "💾 Backup script found! Starting pre-shutdown backup..."
-
     bash "$BACKUP_SCRIPT"
-
     echo "✅ Backup complete. Proceeding with shutdown sequence."
 else
     echo "⚠️  No backup.sh found in this folder. Skipping backup step."
@@ -320,12 +311,12 @@ EOF
 
 create_restart_script() {
     cat << EOF > restart.sh
-    #!/bin/bash
-    echo "🔄 Rebooting Server..."
-    ./stop.sh
-    sleep 2
-    ./start.sh
-    echo "✅ Server restarted successfully."
+#!/bin/bash
+echo "🔄 Rebooting Server..."
+./stop.sh
+sleep 2
+./start.sh
+echo "✅ Server restarted successfully."
 EOF
     chmod +x restart.sh
     echo "✅ Created restart.sh"
@@ -339,7 +330,6 @@ SERVER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 echo "🔪 Surgical Force Kill..."
 
 # 1. Find Java running ONLY in this directory
-# We search for the folder path in the java command arguments
 JAVA_PID=$(pgrep -f "java.*$SERVER_DIR")
 
 if [ -n "$JAVA_PID" ]; then
@@ -380,8 +370,7 @@ if [ "$CONFIRM" != "delete" ]; then echo "❌ Cancelled."; exit 1; fi
 
 echo "🗑️  Cleaning up..."
 
-# 2. Surgical Process Kill (Only kills Java running in THIS folder)
-# We look for a Java process whose arguments include this directory path
+# 2. Surgical Process Kill
 JAVA_PID=$(pgrep -f "java.*$TARGET_DIR")
 if [ -n "$JAVA_PID" ]; then
     echo "   - Killing server process (PID: $JAVA_PID)..."
@@ -389,14 +378,13 @@ if [ -n "$JAVA_PID" ]; then
 fi
 
 # 3. Screen Session Cleanup
-# Detect the screen name just like the dashboard does
 DETECTED_SCREEN=$(screen -ls | grep -E "minecraft|mcserver|Forge|Paper" | awk '{print $1}' | cut -d. -f2 | head -n 1)
 if [ -n "$DETECTED_SCREEN" ]; then
     screen -X -S "$DETECTED_SCREEN" quit >/dev/null 2>&1
     echo "   - Closed Screen session."
 fi
 
-# 4. Remove from Cron (Auto-start/Auto-restart)
+# 4. Remove from Cron
 (crontab -l 2>/dev/null | grep -vF "$TARGET_DIR") | crontab -
 echo "   - Removed automation schedules."
 
@@ -421,7 +409,6 @@ EOF
     echo "✅ uninstall.sh created."
 }
 
-# Modpack Installer
 create_modpack_installer() {
     local TARGET_DIR="$1"
     if [ -z "$TARGET_DIR" ]; then TARGET_DIR="."; fi
@@ -485,35 +472,24 @@ EOF
     echo "✅ Helper script created successfully."
 }
 
-# create a backup script
 create_backup_system() {
     local TARGET_DIR="$1"
-
-    # Checks if unzip is installed and installs it if its missing.
     if ! command -v unzip &> /dev/null; then
         echo -e "${CYAN}--> 'unzip' is missing. Installing it now...${NC}"
         sudo apt-get update -qq && sudo apt-get install unzip -y
     fi
-
-    # Default to current directory if not provided
-    if [ -z "$TARGET_DIR" ]; then
-        TARGET_DIR="."
-    fi
-
-    # 1. Get Absolute Path of the Target Directory
+    if [ -z "$TARGET_DIR" ]; then TARGET_DIR="."; fi
     pushd "$TARGET_DIR" > /dev/null
     local ABS_SERVER_DIR=$(pwd)
     popd > /dev/null
 
     echo -e "--> Creating 'backup.sh' in ${TARGET_DIR}..."
 
-    # 2. Generate the Script
     cat << 'EOF' > "${TARGET_DIR}/backup.sh"
 #!/bin/bash
 # --- Auto-Generated Backup Script ---
 
 # CONFIGURATION
-# Ensure this matches the name in your start.sh/stop.sh!
 SCREEN_NAME="minecraft"
 SERVER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BACKUP_DIR="${SERVER_DIR}/backups"
@@ -542,11 +518,6 @@ fi
 
 # 3. Compress
 echo "--> Compressing to $BACKUP_NAME..."
-# Excludes:
-# - ./backups (Recursion)
-# - ./logs (Massive text files)
-# - ./crash-reports (Not needed for restore)
-# - *.log (Loose log files)
 tar --exclude='./backups' \
     --exclude='./logs' \
     --exclude='./crash-reports' \
@@ -565,35 +536,29 @@ echo "--> Removing backups older than $RETENTION_DAYS days..."
 find "$BACKUP_DIR" -name "backup-*.tar.gz" -type f -mtime +$RETENTION_DAYS -delete
 echo "✅ Done."
 EOF
-
     chmod +x "${TARGET_DIR}/backup.sh"
 
-    # 3. Add to Crontab (Every 4 Hours)
     echo "--> Registering Backup Cron Job..."
-    # Cron syntax: Minute(0) Hour(*/4) Day(*) Month(*) Weekday(*)
     local CRON_CMD="0 */4 * * * /bin/bash ${ABS_SERVER_DIR}/backup.sh >/dev/null 2>&1"
-
     (crontab -l 2>/dev/null | grep -F "${ABS_SERVER_DIR}/backup.sh") && echo "⚠️ Cron backup already exists." || {
         (crontab -l 2>/dev/null; echo "$CRON_CMD") | crontab -
         echo "✅ Backup scheduled for every 4 hours."
     }
 }
+
 create_server_update_script() {
     local TARGET_DIR="$1"
     if [ -z "$TARGET_DIR" ]; then TARGET_DIR="."; fi
-
     echo -e "--> Creating 'server_update.sh' in ${TARGET_DIR}..."
 
     cat << 'EOF' > "${TARGET_DIR}/server_update.sh"
 #!/bin/bash
 # --- Smart Server Updater ---
-# Wrapper that handles Safety Backup -> Stop -> Update -> Start
-
 SCREEN_NAME="minecraft"
 BACKUP_SCRIPT="./backup.sh"
 STOP_SCRIPT="./stop.sh"
 START_SCRIPT="./start.sh"
-CORE_UPDATE_SCRIPT="./update.sh" # The script generated by Paper/NeoForge functions
+CORE_UPDATE_SCRIPT="./update.sh"
 
 echo "🔄 --- Minecraft Server Update Wrapper ---"
 
@@ -618,14 +583,12 @@ fi
 # 3. RUN UPDATE LOGIC
 echo "🛠️  Starting Update Process..."
 if [ -f "$CORE_UPDATE_SCRIPT" ]; then
-    # Run the specific updater (PaperMC auto-downloader or NeoForge installer)
     chmod +x "$CORE_UPDATE_SCRIPT"
     ./"$CORE_UPDATE_SCRIPT"
 else
     # Fallback: Manual Mode
     echo "⚠️  No specific update.sh found."
-    echo "   Please paste the download link for the new server JAR."
-    read -p "URL: " DOWNLOAD_URL
+    read -p "Paste URL for server.jar: " DOWNLOAD_URL
     if [ -n "$DOWNLOAD_URL" ]; then
         wget -O server.jar "$DOWNLOAD_URL"
         echo "✅ Downloaded."
@@ -639,11 +602,9 @@ echo "🚀 Restarting Server..."
 screen -dmS "$SCREEN_NAME" "$START_SCRIPT"
 echo "✅ Update sequence complete."
 EOF
-
     chmod +x "${TARGET_DIR}/server_update.sh"
 }
 
-# Dashboard install
 install_dashboard() {
     cat << EOF > dashboard.sh
 #!/bin/bash
@@ -849,7 +810,6 @@ draw_ui() {
     tput cup \$TERM_LINES \$TERM_COLS
 }
 
-# --- MAIN LOOP ---
 tput smcup; tput civis; stty -echo
 trap "tput rmcup; tput cnorm; stty echo; exit" EXIT
 clear
@@ -858,7 +818,6 @@ while true; do
     draw_ui
     read -t 1 -n 1 -s key
     if [[ "\$key" == \$'\e' ]]; then read -t 0.001 -n 3 -s trash; key=""; fi
-
     if [ -n "\$key" ]; then
         case \$key in
             1) clear; echo -e "\n\${GREEN}--> Starting...\${NORM}"; if [ -f "./start.sh" ]; then ./start.sh; elif [ -f "./run.sh" ]; then ./run.sh; fi; read -p "Press Enter..."; clear ;;
@@ -866,18 +825,13 @@ while true; do
             3) tput cnorm; stty echo; clear; echo -e "\${CYAN}--> Console... (Ctrl+A, D to exit)\${NORM}"; sleep 1; screen -r "\$SCREEN_NAME"; tput civis; stty -echo; clear ;;
             4) tput cnorm; stty echo; clear; echo -e "\n\${YELLOW}--> Backup...\${NORM}"; [ -f "./backup.sh" ] && ./backup.sh; read -p "Done."; tput civis; stty -echo; clear ;;
             5) tput cnorm; stty echo; clear; echo -e "\n\${RED}--> Uninstalling...\${NORM}"; [ -f "./uninstall.sh" ] && ./uninstall.sh; read -p "Press Enter..."; tput civis; stty -echo; clear ;;
-            # NEW UPDATE OPTION
             6) tput cnorm; stty echo; clear; echo -e "\n\${YELLOW}--> Updating Server Software...\${NORM}"; [ -f "./server_update.sh" ] && ./server_update.sh; read -p "Done."; tput civis; stty -echo; clear ;;
-
             7) clear; echo -e "\n\${CYAN}--> Playit.gg\${NORM}"; sudo systemctl status playit --no-pager; read -p "Done."; clear ;;
             8) clear; echo -e "\n\${MAGENTA}--> Toggling On-Boot Start...\${NORM}"; toggle_autostart; read -p "Done."; clear ;;
             9) tput cnorm; stty echo; clear; echo -e "\n\${MAGENTA}--> Configuring Daily Restart...\${NORM}"; toggle_autorestart; read -p "Press Enter..."; tput civis; stty -echo; clear ;;
             0) tput cnorm; stty echo; change_ram; tput civis; stty -echo; clear ;;
-
             m|M) tput cnorm; stty echo; clear; [ -f "./install_modpack.sh" ] && ./install_modpack.sh; read -p "Done."; tput civis; stty -echo; clear ;;
-
             r|R) tput cnorm; stty echo; clear; [ -f "./restore.sh" ] && ./restore.sh; read -p "Press Enter..."; tput civis; stty -echo; clear ;;
-
             k|K) tput cnorm; stty echo; ./forcekill.sh; read -p "Done."; clear;;
             u|U) tput cnorm; stty echo; perform_update ;;
             q|Q) clear; exit 0 ;;
@@ -891,13 +845,10 @@ EOF
 
 configure_autostart_service() {
     echo "⚙️  Configuring Auto-Start Service..."
-
     SERVICE_NAME="minecraft-$(basename "$(pwd)")"
     SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
     CURRENT_USER="$(whoami)"
     SERVER_DIR="$(pwd)"
-
-    # Write the service file
     cat << EOF | sudo tee "$SERVICE_FILE" > /dev/null
 [Unit]
 Description=Minecraft Server: $(basename "$SERVER_DIR")
@@ -908,135 +859,66 @@ User=$CURRENT_USER
 Group=$CURRENT_USER
 Type=forking
 WorkingDirectory=$SERVER_DIR
-
-# START: Just run the script (which handles the screen creation)
 ExecStart=/bin/bash $SERVER_DIR/start.sh
-
-# STOP: Send safe stop command to console
 ExecStop=/usr/bin/screen -p 0 -S minecraft -X eval 'stuff "stop\015"'
 ExecStop=/bin/sleep 10
-
-# RESTART: Auto-restart if it crashes
 Restart=always
 RestartSec=30
 
 [Install]
 WantedBy=multi-user.target
 EOF
-
-    # Reload and Enable
     sudo systemctl daemon-reload
     sudo systemctl enable "$SERVICE_NAME" >/dev/null 2>&1
     echo "✅ Auto-start updated (No-Inception Mode)."
 }
+
 create_restore_script() {
     local TARGET_DIR="$1"
     if [ -z "$TARGET_DIR" ]; then TARGET_DIR="."; fi
-
     echo -e "--> Creating 'restore.sh' in ${TARGET_DIR}..."
-
     cat << 'EOF' > "${TARGET_DIR}/restore.sh"
 #!/bin/bash
-# --- Interactive Restore Script ---
-
 BACKUP_DIR="./backups"
 SCREEN_NAME="minecraft"
 STOP_SCRIPT="./stop.sh"
-
 echo "⏪ --- Minecraft Server Restore ---"
-
-# 1. Check for backups
-if [ ! -d "$BACKUP_DIR" ]; then
-    echo "❌ Error: '$BACKUP_DIR' directory does not exist."
-    exit 1
-fi
-
-# Get list of backups (sorted by newest first)
-# We use 'ls' into an array.
-# NOTE: This handles spaces in filenames poorly, but our auto-generated names have no spaces.
+if [ ! -d "$BACKUP_DIR" ]; then echo "❌ Error: '$BACKUP_DIR' directory does not exist."; exit 1; fi
 mapfile -t BACKUPS < <(ls -1t "$BACKUP_DIR"/*.tar.gz 2>/dev/null)
-
-if [ ${#BACKUPS[@]} -eq 0 ]; then
-    echo "❌ No .tar.gz backup files found in $BACKUP_DIR."
-    exit 1
-fi
-
-# 2. Display Menu
+if [ ${#BACKUPS[@]} -eq 0 ]; then echo "❌ No .tar.gz backup files found in $BACKUP_DIR."; exit 1; fi
 echo "AVAILABLE BACKUPS:"
 echo "---------------------------------"
 i=1
 for val in "${BACKUPS[@]}"; do
-    # Show only the filename, not the full path, for readability
     NAME=$(basename "$val")
     echo "[$i] $NAME"
     ((i++))
 done
 echo "---------------------------------"
 echo "Type '0' to Cancel."
-
-# 3. User Selection
 read -p "Select a backup number to restore: " SELECTION
-
-if ! [[ "$SELECTION" =~ ^[0-9]+$ ]]; then
-    echo "❌ Invalid input."
-    exit 1
-fi
-
-if [ "$SELECTION" -eq 0 ]; then
-    echo "🚫 Cancelled."
-    exit 0
-fi
-
-# Adjust for 0-based array index
+if ! [[ "$SELECTION" =~ ^[0-9]+$ ]]; then echo "❌ Invalid input."; exit 1; fi
+if [ "$SELECTION" -eq 0 ]; then echo "🚫 Cancelled."; exit 0; fi
 INDEX=$((SELECTION-1))
 FILE_TO_RESTORE="${BACKUPS[$INDEX]}"
-
-if [ -z "$FILE_TO_RESTORE" ]; then
-    echo "❌ Invalid selection number."
-    exit 1
-fi
-
-echo ""
-echo "⚠️  WARNING: You are about to restore: $(basename "$FILE_TO_RESTORE")"
-echo "⚠️  This will OVERWRITE your current world and server files."
-echo "⚠️  Any changes made since this backup will be LOST."
-echo ""
+if [ -z "$FILE_TO_RESTORE" ]; then echo "❌ Invalid selection number."; exit 1; fi
+echo ""; echo "⚠️  WARNING: You are about to restore: $(basename "$FILE_TO_RESTORE")"
+echo "⚠️  This will OVERWRITE your current world and server files."; echo ""
 read -p "Type 'restore' to confirm this destructive action: " CONFIRM
-
-if [ "$CONFIRM" != "restore" ]; then
-    echo "🚫 Action cancelled. No changes made."
-    exit 1
-fi
-
-# 4. Stop Server
+if [ "$CONFIRM" != "restore" ]; then echo "🚫 Action cancelled."; exit 1; fi
 if screen -list | grep -q "$SCREEN_NAME"; then
     echo "🛑 Server is running. Stopping it now..."
-    if [ -f "$STOP_SCRIPT" ]; then
-        bash "$STOP_SCRIPT"
-    else
-        screen -S "$SCREEN_NAME" -p 0 -X stuff "stop^M"
-        sleep 10
-    fi
+    if [ -f "$STOP_SCRIPT" ]; then bash "$STOP_SCRIPT"; else screen -S "$SCREEN_NAME" -p 0 -X stuff "stop^M"; sleep 10; fi
 fi
-
-# 5. Perform Restore
 echo "♻️  Restoring files from archive..."
-# -x: extract, -z: gunzip, -f: file, --overwrite: ensure we replace files
 tar -xzf "$FILE_TO_RESTORE" --overwrite
-
-echo "✅ Restore Complete!"
-echo "🚀 You can now start your server normally."
+echo "✅ Restore Complete!"; echo "🚀 You can now start your server normally."
 EOF
     chmod +x "${TARGET_DIR}/restore.sh"
 }
 
 install_minecraft_server() {
-    # Check for jq
-    if ! command -v jq &> /dev/null; then
-        echo "❌ Error: 'jq' is not installed."
-        return 1
-    fi
-
+    if ! command -v jq &> /dev/null; then echo "❌ Error: 'jq' is not installed."; return 1; fi
     echo "=========================================="
     echo "   Minecraft Server Selection"
     echo "=========================================="
@@ -1045,43 +927,25 @@ install_minecraft_server() {
     echo "=========================================="
     read -p "Select server type [1 or 2]: " SERVER_TYPE
 
-    # === PAPERMC ===
     if [ "$SERVER_TYPE" == "1" ]; then
         echo "--- PaperMC Selected ---"
         papermc_update
-        # Run the update script we just made
         ./update.sh
-
-    # === NEOFORGE ===
     elif [ "$SERVER_TYPE" == "2" ]; then
         echo "--- NeoForge Selected ---"
         neoforge_update
         create_modpack_installer
-        # Run the update script
         ./update.sh
-
-        # 🟢 NEW: Force-write the RAM settings immediately after install
         echo "-Xms$RAM" > user_jvm_args.txt
         echo "-Xmx$RAM" >> user_jvm_args.txt
         echo "✅ RAM set to $RAM in user_jvm_args.txt"
-
-        # Ensure run.sh is executable
-        if [ -f "run.sh" ]; then
-            chmod +x run.sh
-        fi
+        if [ -f "run.sh" ]; then chmod +x run.sh; fi
      fi
     read -p "Install playit for port tunneling? (y/n): " PLAYIT_CHOICE
-    if [[ "$PLAYIT_CHOICE" =~ ^[Yy]$ ]]; then
-        install_playit
-    fi
-    # Auto-EULA
+    if [[ "$PLAYIT_CHOICE" =~ ^[Yy]$ ]]; then install_playit; fi
     read -p "Auto-accept minecraft EULA? (y/n): " EULA_CHOICE
-    if [[ "$EULA_CHOICE" =~ ^[Yy]$ ]]; then
-        echo "eula=true" > eula.txt
-        echo "✅ EULA accepted."
-    fi
+    if [[ "$EULA_CHOICE" =~ ^[Yy]$ ]]; then echo "eula=true" > eula.txt; echo "✅ EULA accepted."; fi
 
-    # Generate all helper scripts now that we know the type
     create_start_script
     create_stop_script
     create_restart_script
@@ -1096,20 +960,15 @@ install_minecraft_server() {
 }
 
 # ==========================================
-# 2. MAIN EXECUTION
+# 4. REFRESH / UPDATE MODE (FIXED FOR DOCKER)
 # ==========================================
 
-# CHANGE THIS LINE:
 if [[ "$1" == "--refresh" || "$2" == "--refresh" ]]; then
     echo "🔄 Update Mode: Detecting configuration..."
-    # ... rest of the logic ...
 
-    # 1. Detect RAM from existing files (Updated for compatibility)
     if [ -f "user_jvm_args.txt" ]; then
-        # NeoForge: Find -Xmx4G, then strip '-Xmx'
         RAM=$(grep -o '-Xmx[0-9]\+[GM]' user_jvm_args.txt | head -1 | sed 's/-Xmx//')
     elif [ -f "start.sh" ]; then
-        # Paper: Find -Xms4G, then strip '-Xms'
         RAM=$(grep -o '-Xms[0-9]\+[GM]' start.sh | head -1 | sed 's/-Xms//')
     fi
 
@@ -1120,7 +979,6 @@ if [[ "$1" == "--refresh" || "$2" == "--refresh" ]]; then
         echo "   - Detected RAM: $RAM"
     fi
 
-    # 2. Detect Server Type
     if [ -f "run.sh" ]; then
         echo "   - Detected Type: NeoForge"
         SERVER_TYPE="2"
@@ -1131,7 +989,6 @@ if [[ "$1" == "--refresh" || "$2" == "--refresh" ]]; then
         JAR_FILE="server.jar"
     fi
 
-    # 3. Regenerate All Scripts
     echo "📦 Regenerating tools..."
     create_start_script
     create_stop_script
@@ -1145,15 +1002,30 @@ if [[ "$1" == "--refresh" || "$2" == "--refresh" ]]; then
     install_dashboard
     setup_global_command "$(basename "$(pwd)")" "$(pwd)"
 
+    # --- CRITICAL FIX: Ensure JAR exists in Docker mode ---
+    if [ "$1" == "--docker" ] || [ "$2" == "--docker" ]; then
+         echo "🐳 Docker Mode: Verifying server files..."
+         if [ "$SERVER_TYPE" == "1" ] && [ ! -f "server.jar" ]; then
+             echo "⬇️  Missing server.jar! Downloading PaperMC..."
+             papermc_update
+             ./update.sh
+         elif [ "$SERVER_TYPE" == "2" ] && [ ! -f "run.sh" ]; then
+             echo "⬇️  Missing run.sh! Downloading NeoForge..."
+             # NOTE: NeoForge requires interaction for version number,
+             # so we default to a safe recent version if unattended, or fail gracefully.
+             # For now, we assume user might need to run manual update if NeoForge is missing.
+             echo "⚠️  NeoForge requires manual version selection. Run './install.sh' manually inside container if missing."
+         fi
+    fi
+
     echo "✅ Scripts updated successfully!"
     exit 0
 fi
 
+# ==========================================
+# MAIN EXECUTION (Manual Install)
+# ==========================================
 echo "🛠️  Initializing Setup..."
-
-# ==========================================
-# Directory Setup
-# ==========================================
 echo "📂 Directory Setup"
 read -p "Name of new server folder (press Enter to use current folder): " DIR_NAME
 
@@ -1161,7 +1033,6 @@ if [ ! -z "$DIR_NAME" ]; then
     echo "Creating folder '$DIR_NAME'..."
     mkdir -p "$DIR_NAME"
     cd "$DIR_NAME" || exit
-
     echo "✅ Switched to $(pwd)"
 else
     DEFAULT_DIR=mc-server
@@ -1171,41 +1042,23 @@ else
 fi
 echo ""
 
-# Install Dependencies
 echo "📦 Installing system packages (Java 21, Screen, JQ, Curl)..."
 sudo apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-21-jre-headless screen jq curl || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y default-jre screen jq curl
 
-echo "✅ System ready."
-echo ""
-
-# RAM Setup
+echo "✅ System ready."; echo ""
 read -p "Enter RAM amount (e.g., 4G): " RAM_INPUT
-if [ -z "$RAM_INPUT" ]; then
-    RAM="4G"
-elif [[ "$RAM_INPUT" =~ ^[0-9]+$ ]]; then
-    RAM="${RAM_INPUT}G"
-else
-    RAM="$RAM_INPUT"
-fi
+if [ -z "$RAM_INPUT" ]; then RAM="4G"; elif [[ "$RAM_INPUT" =~ ^[0-9]+$ ]]; then RAM="${RAM_INPUT}G"; else RAM="$RAM_INPUT"; fi
 
-# Global Variables
 SCREEN_NAME="minecraft"
-JAR_FILE="server.jar" # Default for Paper, NeoForge uses run.sh wrapper
+JAR_FILE="server.jar"
 
-echo ""
-echo "📝 Configuration saved: RAM=$RAM"
-echo ""
+echo ""; echo "📝 Configuration saved: RAM=$RAM"; echo ""
 
-# Run the Main Installer Logic
 install_minecraft_server
 
-echo ""
-echo "🎉 Installation Complete!"
+echo ""; echo "🎉 Installation Complete!"
 echo "👉 Use mcserver $(basename "$(pwd)") to launch the server dashboard."
 
-# ==========================================
-# Self-Cleanup
-# ==========================================
 echo "🧹 Cleaning up installer file..."
 rm -- "$SCRIPT_PATH"
