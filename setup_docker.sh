@@ -80,6 +80,48 @@ if [ "$SERVER_TYPE" == "2" ]; then
 fi
 echo "------------------------------------------------"
 
+# ==========================================
+# 🌐 PLAYIT.GG SETUP (Sidecar Injection)
+# ==========================================
+echo "------------------------------------------------"
+echo "🌐 Playit.gg Configuration (Remote Access)"
+echo "   This allows people to join your server without port forwarding."
+read -p "Do you want to add Playit.gg? (y/n) [n]: " PLAYIT_CHOICE
+
+if [[ "$PLAYIT_CHOICE" =~ ^[Yy]$ ]]; then
+    echo ""
+    echo "👉 1. Go to: https://playit.gg/account/agents"
+    echo "👉 2. Click 'Create Agent'"
+    echo "👉 3. Copy the Secret Key (it looks like a long hex code)"
+    echo ""
+    read -p "Enter your Playit Secret Key: " PLAYIT_KEY
+
+    if [ -n "$PLAYIT_KEY" ]; then
+        echo "🔧 Injecting Playit sidecar into docker-compose.yml..."
+
+        # Append the service block to the end of the file
+        # We use strict indentation (2 spaces for service name, 4 for properties)
+        cat << EOF >> docker-compose.yml
+
+  playit:
+    image: ghcr.io/playit-cloud/playit-agent:latest
+    container_name: playit-agent
+    restart: unless-stopped
+    depends_on:
+      - mc-server
+    environment:
+      - PLAYIT_SECRET=$PLAYIT_KEY
+    network_mode: "service:mc-server"
+EOF
+        echo "✅ Playit.gg configured!"
+    else
+        echo "⚠️  No key entered. Skipping Playit setup."
+    fi
+else
+    echo "   Skipping Playit.gg."
+fi
+echo "------------------------------------------------"
+
 # 5. Launch
 echo "🚀 Building and Starting Container..."
 
