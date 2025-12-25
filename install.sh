@@ -172,31 +172,32 @@ EOF
     echo "✅ Playit.gg installed and configured for user: $CURRENT_USER!"
 }
 
+
 neoforge_update() {
     cat << 'EOF' > update.sh
 #!/bin/bash
 # NeoForge Updater & Cleaner
 
 echo "=========================================="
-    echo "   NeoForge Server Updater"
-    echo "=========================================="
+echo "   NeoForge Server Updater"
+echo "=========================================="
 
-    # --- NEW LOGIC START ---
-    # Check if passed from Docker Env
-    if [ -n "$NEOFORGE_VERSION" ]; then
-        echo "🐳 Docker Environment Detected: Using Version $NEOFORGE_VERSION"
-        NF_VERSION="$NEOFORGE_VERSION"
-    else
-        # Fallback to manual input
-        echo "⚠️  For ATM10, check the modpack version for the required NeoForge version."
-        read -p "Enter NeoForge Version (e.g., 21.1.73): " NF_VERSION
-    fi
-    # --- NEW LOGIC END ---
+# --- LOGIC START ---
+# 1. Check if passed from Docker Environment (Auto-Install)
+if [ -n "$NEOFORGE_VERSION" ]; then
+    echo "🐳 Docker Environment Detected: Using Version $NEOFORGE_VERSION"
+    NF_VERSION="$NEOFORGE_VERSION"
+else
+    # 2. Fallback to manual input (Manual Install)
+    echo "⚠️  For ATM10, check the modpack version for the required NeoForge version."
+    read -p "Enter NeoForge Version (e.g., 21.1.73): " NF_VERSION
+fi
+# --- LOGIC END ---
 
-    if [ -z "$NF_VERSION" ]; then
-        echo "❌ Error: Version is required."
-        exit 1
-    fi
+if [ -z "$NF_VERSION" ]; then
+    echo "❌ Error: Version is required."
+    exit 1
+fi
 
 INSTALLER="neoforge-${NF_VERSION}-installer.jar"
 URL="https://maven.neoforged.net/releases/net/neoforged/neoforge/${NF_VERSION}/${INSTALLER}"
@@ -204,8 +205,11 @@ URL="https://maven.neoforged.net/releases/net/neoforged/neoforge/${NF_VERSION}/$
 echo "⬇️  Downloading installer: $INSTALLER..."
 wget -O installer.jar "$URL"
 
-if [ ! -f installer.jar ]; then
-    echo "❌ Error: Download failed. Check the version number."
+# Verify download wasn't a 404 error page
+if [ ! -f installer.jar ] || [ $(stat -c%s installer.jar) -lt 1000 ]; then
+    echo "❌ Error: Download failed or file is empty."
+    echo "   Check if version '$NF_VERSION' actually exists on https://neoforged.net/"
+    rm installer.jar 2>/dev/null
     exit 1
 fi
 
@@ -232,7 +236,6 @@ EOF
     chmod +x update.sh
     echo "✅ Created update.sh (NeoForge + Auto-Cleaner)"
 }
-
 create_stop_script() {
     cat << 'EOF' > stop.sh
 #!/bin/bash
