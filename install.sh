@@ -203,13 +203,22 @@ INSTALLER="neoforge-${NF_VERSION}-installer.jar"
 URL="https://maven.neoforged.net/releases/net/neoforged/neoforge/${NF_VERSION}/${INSTALLER}"
 
 echo "⬇️  Downloading installer: $INSTALLER..."
-wget -O installer.jar "$URL"
+wget -q --show-progress "$URL"
 
-# Verify download wasn't a 404 error page
-if [ ! -f installer.jar ] || [ $(stat -c%s installer.jar) -lt 1000 ]; then
-    echo "❌ Error: Download failed or file is empty."
-    echo "   Check if version '$NF_VERSION' actually exists on https://neoforged.net/"
-    rm installer.jar 2>/dev/null
+# 2. Validate & Rename
+if [ -f "$INSTALLER" ]; then
+    # Check if file is too small (indicates a 404 HTML error page)
+    if [ $(stat -c%s "$INSTALLER") -lt 1000 ]; then
+        echo "❌ Error: File is too small (Likely a 404 Not Found)."
+        echo "   Check if version '$NF_VERSION' actually exists on https://neoforged.net/"
+        rm "$INSTALLER"
+        exit 1
+    fi
+
+    # SUCCESS: Rename it to 'installer.jar' so the next command works
+    mv "$INSTALLER" installer.jar
+else
+    echo "❌ Error: Download failed. The file '$INSTALLER' was not found."
     exit 1
 fi
 
@@ -236,6 +245,8 @@ EOF
     chmod +x update.sh
     echo "✅ Created update.sh (NeoForge + Auto-Cleaner)"
 }
+
+
 create_stop_script() {
     cat << 'EOF' > stop.sh
 #!/bin/bash
