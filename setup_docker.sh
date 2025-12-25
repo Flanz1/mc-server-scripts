@@ -44,3 +44,8 @@ fi
 echo ""
 echo "✅ Server started!"
 echo "👉 Manage it with: sudo docker exec -it mc-server ./dashboard.sh"
+echo "🧹 Cleaning up installer file..."
+# Cleanup self
+if [ -f "$0" ]; then
+    rm -- "$0"
+fi
