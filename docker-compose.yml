@@ -1,0 +1,15 @@
+services:
+  mc-server:
+    build: .
+    container_name: mc-server
+    restart: unless-stopped
+    ports:
+      - "25565:25565"
+    volumes:
+      - ./data:/data  # Persist your world/files here
+    environment:
+      - RAM=6G
+      - SERVER_TYPE=2  # 1=Paper, 2=NeoForge
+      - EULA=true
+    tty: true          # Essential for Screen/TUI to work
+    stdin_open: true   # Essential for Screen/TUI to work

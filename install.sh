@@ -1,6 +1,20 @@
 #!/bin/bash
 SCRIPT_PATH=$(readlink -f "$0")
 UPDATE_URL="https://raw.githubusercontent.com/Flanz1/mc-server-scripts/main/install.sh"
+
+# --- DOCKER DETECTION ---
+if [ "$1" == "--docker" ]; then
+    echo "🐳 Docker Mode Activated."
+    # Skip system installs (Handled by Dockerfile)
+    # Set defaults to bypass prompts
+    RAM=${RAM:-"4G"}
+    SERVER_TYPE=${SERVER_TYPE:-"1"} # Default to Paper if not set
+    DIR_NAME="."
+
+    # Define a dummy apt-get to prevent errors if called later
+    function apt-get() { echo "--> (Skipping apt-get in Docker)"; }
+    function sudo() { "$@"; }
+fi
 # ...
 # ==========================================
 # Universal Minecraft Server Installer
@@ -229,8 +243,6 @@ BACKUP_SCRIPT="./backup.sh"
 if [ -f "$BACKUP_SCRIPT" ]; then
     echo "💾 Backup script found! Starting pre-shutdown backup..."
 
-    # Run the backup script and wait for it to finish
-    # We use 'bash' explicitly to ensure it runs
     bash "$BACKUP_SCRIPT"
 
     echo "✅ Backup complete. Proceeding with shutdown sequence."
@@ -269,7 +281,7 @@ else
 fi
 EOF
     chmod +x stop.sh
-    echo "✅ stop.sh created (With Timeout)."
+    echo "✅ stop.sh created"
 }
 
 create_start_script() {
