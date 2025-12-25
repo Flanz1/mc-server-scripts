@@ -304,9 +304,8 @@ create_start_script() {
 #!/bin/bash
 
 # Settings
-# Adjust RAM as needed for your specific machine
+# (RAM is handled by user_jvm_args.txt for NeoForge, or command line for Paper)
 JAVA_ARGS="-Xms4G -Xmx4G"
-JAR_FILE="server.jar"
 
 echo "✨ Preparing to launch Minecraft..."
 
@@ -315,22 +314,28 @@ while true
 do
     echo "🚀 Starting Server..."
 
-    # Run the server
-    # 'nogui' saves resources by not opening the extra Java window
-    java $JAVA_ARGS -jar $JAR_FILE nogui
+    # --- SMART LAUNCH LOGIC ---
+    if [ -f "./run.sh" ]; then
+        # NeoForge / Fabric Mode
+        echo "--> Detected run.sh (NeoForge/Fabric)"
+        chmod +x run.sh
+        ./run.sh
+    else
+        # Paper / Vanilla Mode
+        echo "--> Detected Standard Jar"
+        java $JAVA_ARGS -jar server.jar nogui
+    fi
+    # --------------------------
 
     # This part runs ONLY after the server stops/crashes
     echo "🛑 Server has stopped."
     echo "⏳ Restarting in 5 seconds... (Press Ctrl+C to stop the loop)"
-
-    # The 5-second buffer is CRITICAL.
-    # It prevents a "rapid fire" restart loop if the server is failing instantly,
-    # and gives you a chance to kill the script manually if you are watching the console.
+    
     sleep 5
 done
 EOF
     chmod +x start.sh
-    echo "✅ start.sh created."
+    echo "✅ start.sh created (Smart Mode)."
 }
 
 create_restart_script() {
