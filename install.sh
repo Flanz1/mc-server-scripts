@@ -338,6 +338,11 @@ EOF
     echo "✅ start.sh created (Smart Mode)."
 }
 
+create_background_start_script(){
+echo 'screen -dmS minecraft ./start.sh' > background_start.sh
+chmod +x background_start.sh
+}
+
 create_restart_script() {
     cat << EOF > restart.sh
 #!/bin/bash
@@ -799,7 +804,6 @@ while true; do
                     echo -e "\n\${YELLOW}Server is already running!\${NORM}"
                 else
                     echo -e "\n\${GREEN}--> Starting in detached Screen...\${NORM}"
-                    # --- THE FIX IS HERE ---
                     screen -dmS "\$SCREEN_NAME" ./start.sh
                     # -----------------------
                     sleep 1
