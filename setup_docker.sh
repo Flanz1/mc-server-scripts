@@ -31,7 +31,7 @@ cd "$TARGET_DIR" || { echo "❌ Failed to enter directory"; exit 1; }
 # 3. Download Files
 echo "⬇️  Downloading configuration files..."
 wget -q -O install.sh "$REPO_BASE/install.sh"
-wget -q -O Dockerfile "$REPO_BASE/dockerfile"
+wget -q -O Dockerfile "$REPO_BASE/Dockerfile"
 wget -q -O docker-compose.yml "$REPO_BASE/docker-compose.yml"
 wget -q -O docker-entrypoint.sh "$REPO_BASE/docker-entrypoint.sh"
 
