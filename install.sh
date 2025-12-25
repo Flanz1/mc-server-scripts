@@ -178,12 +178,6 @@ neoforge_update() {
 # NeoForge Updater & Cleaner
 
 echo "=========================================="
-echo "   NeoForge Server Updater"
-echo "=========================================="
-echo "⚠️  For ATM10, check the modpack version for the required NeoForge version."
-read -p "Enter NeoForge Version (e.g., 21.1.73): " NF_VERSION
-
-echo "=========================================="
     echo "   NeoForge Server Updater"
     echo "=========================================="
 
